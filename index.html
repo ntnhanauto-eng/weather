@@ -1,1 +1,280 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
 
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Radar mưa + Dự báo</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+<style>
+
+body{
+margin:0;
+font-family:Arial;
+background:#0b2233;
+color:white;
+}
+
+header{
+text-align:center;
+padding:12px;
+font-size:20px;
+font-weight:bold;
+background:#062338;
+}
+
+#map{
+height:420px;
+}
+
+#info{
+padding:15px;
+}
+
+table{
+width:100%;
+border-collapse:collapse;
+}
+
+th,td{
+padding:10px;
+border-bottom:1px solid rgba(255,255,255,0.2);
+text-align:center;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<header>🌧 Radar mưa + Dự báo 3 giờ</header>
+
+<div id="map"></div>
+
+<div id="info">
+
+<div id="locationName"></div>
+<div id="coord"></div>
+
+<h3>Dự báo 3 giờ tới</h3>
+
+<table>
+
+<tr>
+<th>Giờ</th>
+<th>Nhiệt độ</th>
+<th>Mưa</th>
+<th>Gió</th>
+<th>Trạng thái</th>
+</tr>
+
+<tbody id="weatherTable"></tbody>
+
+</table>
+
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+
+// tạo bản đồ
+const map=L.map("map",{
+minZoom:3,
+maxZoom:12,
+zoomSnap:0.5
+}).setView([12.55,109.2],6)
+
+// bản đồ nền
+L.tileLayer(
+"https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+{
+maxZoom:19
+}
+).addTo(map)
+
+let radarLayer
+let marker
+
+// tải radar
+fetch("https://api.rainviewer.com/public/weather-maps.json")
+
+.then(r=>r.json())
+
+.then(data=>{
+
+const host=data.host
+const frame=data.radar.past.slice(-1)[0]
+
+radarLayer=L.tileLayer(
+host+frame.path+"/256/{z}/{x}/{y}/2/1_1.png",
+{
+opacity:0.6,
+tileSize:256,
+
+maxNativeZoom:8,   // zoom thật của radar
+maxZoom:12,        // cho phép zoom sâu hơn
+
+updateWhenZooming:false,
+updateWhenIdle:true,
+
+noWrap:true,
+bounds:[[-85,-180],[85,180]]
+}
+)
+
+radarLayer.addTo(map)
+
+})
+
+// lấy vị trí người dùng
+window.onload=function(){
+
+if(navigator.geolocation){
+
+navigator.geolocation.getCurrentPosition(function(pos){
+
+const lat=pos.coords.latitude
+const lon=pos.coords.longitude
+
+map.setView([lat,lon],7)
+
+showMarker(lat,lon)
+
+loadLocation(lat,lon)
+loadWeather(lat,lon)
+
+})
+
+}
+
+}
+
+// hiển thị marker
+function showMarker(lat,lon){
+
+if(marker){
+map.removeLayer(marker)
+}
+
+marker=L.marker([lat,lon]).addTo(map)
+
+document.getElementById("coord").innerHTML=
+"📌 "+lat.toFixed(4)+" , "+lon.toFixed(4)
+
+}
+
+// click bản đồ
+map.on("click",function(e){
+
+const lat=e.latlng.lat
+const lon=e.latlng.lng
+
+showMarker(lat,lon)
+
+loadLocation(lat,lon)
+loadWeather(lat,lon)
+
+})
+
+// lấy tên địa điểm
+function loadLocation(lat,lon){
+
+fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`)
+
+.then(r=>r.json())
+
+.then(data=>{
+
+document.getElementById("locationName").innerHTML=
+"📍 "+data.display_name
+
+})
+
+}
+
+// dự báo thời tiết
+function loadWeather(lat,lon){
+
+fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,precipitation,windspeed_10m&forecast_days=1&timezone=Asia/Bangkok`)
+
+.then(r=>r.json())
+
+.then(data=>{
+
+let table=document.getElementById("weatherTable")
+table.innerHTML=""
+
+let times=data.hourly.time
+let temps=data.hourly.temperature_2m
+let rains=data.hourly.precipitation
+let winds=data.hourly.windspeed_10m
+
+let now=new Date()
+
+let startIndex=0
+
+for(let i=0;i<times.length;i++){
+
+let t=new Date(times[i])
+
+if(t>=now){
+startIndex=i
+break
+}
+
+}
+
+// hiển thị 3 giờ tiếp theo
+for(let i=startIndex;i<startIndex+3;i++){
+
+let time=new Date(times[i])
+let temp=temps[i]
+let rain=rains[i]
+let wind=winds[i]
+
+let status="Nắng"
+
+if(rain===0 && wind<8){
+status="Nắng nhẹ"
+}
+else if(rain>0 && rain<=0.5){
+status="Mưa phùn"
+}
+else if(rain>0.5 && rain<=2){
+status="Mưa nhẹ"
+}
+else if(rain>2 && rain<=10){
+status="Mưa vừa"
+}
+else if(rain>10 && rain<=30){
+status="Mưa to"
+}
+else if(rain>30){
+status="Mưa rất lớn"
+}
+
+table.innerHTML+=`
+<tr>
+<td>${time.getHours()}:00</td>
+<td>${temp}°C</td>
+<td>${rain} mm</td>
+<td>${wind} km/h</td>
+<td>${status}</td>
+</tr>
+`
+
+}
+
+})
+
+}
+
+</script>
+
+</body>
+</html>
