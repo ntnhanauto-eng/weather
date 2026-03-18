@@ -10,8 +10,10 @@
 <style>
 body{font-family:system-ui;background:linear-gradient(135deg,#667eea,#764ba2);padding:20px}
 .container{max-width:1100px;margin:auto;background:#fff;border-radius:20px;overflow:hidden}
+
 .header{text-align:center;color:#fff;padding:20px;background:linear-gradient(135deg,#4facfe,#00f2fe)}
 input{margin:15px;padding:10px 15px;border-radius:30px;border:2px solid #ddd;width:250px}
+
 .content{padding:20px}
 
 .current{display:grid;grid-template-columns:1fr 1fr;gap:20px}
@@ -26,12 +28,25 @@ input{margin:15px;padding:10px 15px;border-radius:30px;border:2px solid #ddd;wid
 .day{background:#eee;padding:15px;border-radius:10px;text-align:center}
 
 #map{height:400px;border-radius:15px;margin-top:20px}
+
+/* ===== FOOTER ===== */
+.footer{
+  background:linear-gradient(135deg,#4facfe,#00f2fe);
+  color:white;
+  padding:20px;
+  text-align:center;
+}
+.footer h4{margin:5px 0}
+.footer a{color:white;text-decoration:none;margin:0 10px}
+.footer a:hover{text-decoration:underline}
+.version{font-size:12px;opacity:0.8}
 </style>
 </head>
 
 <body>
 
 <div class="container">
+
   <div class="header">
     <h2>🌤️ DỰ BÁO THỜI TIẾT</h2>
     <div id="location">Đang lấy vị trí...</div>
@@ -60,14 +75,29 @@ input{margin:15px;padding:10px 15px;border-radius:30px;border:2px solid #ddd;wid
       <h3>24 giờ tới</h3>
       <div class="hourly" id="hourly"></div>
 
-      <h3>4 ngày (Hôm qua và 3 ngày tới)</h3>
+      <h3>4 ngày (có hôm qua)</h3>
       <div class="daily" id="daily"></div>
 
-      <h3>🌧️ Radar (Nhấn giữ để chọn vị trí)</h3>
+      <h3>🌧️ Radar (giữ để chọn vị trí)</h3>
       <div id="map"></div>
 
     </div>
   </div>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    <h4>🌤️ DỰ BÁO THỜI TIẾT</h4>
+    <p>Developed by <b>Nguyễn Thành Nhân</b></p>
+
+    <div>
+      <a href="#">🌐 Website</a>
+      <a href="#">📘 Facebook</a>
+      <a href="#">📺 YouTube</a>
+    </div>
+
+    <p class="version">Version 1.0.0 • © 2026</p>
+  </div>
+
 </div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
@@ -76,7 +106,7 @@ input{margin:15px;padding:10px 15px;border-radius:30px;border:2px solid #ddd;wid
 let lat, lon;
 let map, marker;
 
-// ===== DOM =====
+// DOM
 const locationEl = document.getElementById('location');
 const tempEl = document.getElementById('temp');
 const iconEl = document.getElementById('icon');
@@ -88,17 +118,16 @@ const dailyEl = document.getElementById('daily');
 const loadingEl = document.getElementById('loading');
 const appEl = document.getElementById('app');
 
-// ===== FORMAT ADDRESS =====
+// ADDRESS FORMAT
 function formatAddress(addr){
   const xa = addr.suburb || addr.village || addr.town || addr.city_district || '';
   const huyen = addr.city || addr.county || addr.district || '';
   const tinh = addr.state || '';
   const nuoc = addr.country || '';
-
-  return [xa, huyen, tinh, nuoc].filter(Boolean).join(', ');
+  return [xa,huyen,tinh,nuoc].filter(Boolean).join(', ');
 }
 
-// ===== ICON =====
+// ICON
 function icon(code){
   if(code===0) return '☀️';
   if(code<=2) return '⛅';
@@ -109,7 +138,7 @@ function icon(code){
   return '🌤️';
 }
 
-// ===== WEATHER =====
+// WEATHER
 async function loadWeather(){
 
   loadingEl.style.display='block';
@@ -120,8 +149,7 @@ async function loadWeather(){
 &current=temperature_2m,relativehumidity_2m,windspeed_10m,weathercode,pressure_msl
 &hourly=temperature_2m,weathercode,precipitation
 &daily=temperature_2m_max,temperature_2m_min,weathercode,precipitation_sum
-&past_days=1
-&timezone=auto`
+&past_days=1&timezone=auto`
   );
 
   const data=await res.json();
@@ -170,25 +198,24 @@ async function loadWeather(){
   initRadar();
 }
 
-// ===== RADAR =====
+// RADAR
 function initRadar(){
   if(map) map.remove();
 
   map=L.map('map').setView([lat,lon],6);
-
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
   updateMarker();
   setupLongPress();
 }
 
-// ===== MARKER =====
+// MARKER
 function updateMarker(){
   if(marker) map.removeLayer(marker);
   marker=L.marker([lat,lon]).addTo(map);
 }
 
-// ===== LONG PRESS =====
+// LONG PRESS
 let pressTimer;
 
 function setupLongPress(){
@@ -200,15 +227,12 @@ function setupLongPress(){
       map.setView([lat,lon],8);
       updateMarker();
 
-      try{
-        const res=await fetch(
-          `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&addressdetails=1`
-        );
-        const d=await res.json();
-        locationEl.textContent=formatAddress(d.address);
-      }catch{
-        locationEl.textContent='Vị trí đã chọn';
-      }
+      const res=await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&addressdetails=1`
+      );
+      const d=await res.json();
+
+      locationEl.textContent=formatAddress(d.address);
 
       loadWeather();
     },600);
@@ -217,7 +241,7 @@ function setupLongPress(){
   map.on('mouseup', ()=>clearTimeout(pressTimer));
 }
 
-// ===== SEARCH =====
+// SEARCH
 document.getElementById('search').addEventListener('keypress', async e=>{
   if(e.key==='Enter'){
     const city=e.target.value;
@@ -243,20 +267,17 @@ document.getElementById('search').addEventListener('keypress', async e=>{
   }
 });
 
-// ===== INIT =====
+// INIT
 navigator.geolocation.getCurrentPosition(async pos=>{
   lat=pos.coords.latitude;
   lon=pos.coords.longitude;
 
-  try{
-    const res=await fetch(
-      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&addressdetails=1`
-    );
-    const data=await res.json();
-    locationEl.textContent=formatAddress(data.address);
-  }catch{
-    locationEl.textContent='Vị trí của bạn';
-  }
+  const res=await fetch(
+    `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&addressdetails=1`
+  );
+  const data=await res.json();
+
+  locationEl.textContent=formatAddress(data.address);
 
   loadWeather();
 });
