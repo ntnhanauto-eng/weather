@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DỰ BÁO THỜI TIẾT</title>
+<title>Weather PRO ULTIMATE</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 
@@ -12,7 +12,7 @@ body{font-family:system-ui;background:linear-gradient(135deg,#667eea,#764ba2);pa
 .container{max-width:1100px;margin:auto;background:#fff;border-radius:20px;overflow:hidden}
 
 .header{text-align:center;color:#fff;padding:20px;background:linear-gradient(135deg,#4facfe,#00f2fe)}
-input{margin:15px;padding:10px 15px;border-radius:30px;border:2px solid #ddd;width:250px}
+input{margin:15px;padding:10px 15px;border-radius:30px;border:2px solid #ddd;width:260px}
 
 .content{padding:20px}
 
@@ -29,16 +29,13 @@ input{margin:15px;padding:10px 15px;border-radius:30px;border:2px solid #ddd;wid
 
 #map{height:400px;border-radius:15px;margin-top:20px}
 
-/* ===== FOOTER ===== */
 .footer{
   background:linear-gradient(135deg,#4facfe,#00f2fe);
   color:white;
   padding:20px;
   text-align:center;
 }
-.footer h4{margin:5px 0}
 .footer a{color:white;text-decoration:none;margin:0 10px}
-.footer a:hover{text-decoration:underline}
 .version{font-size:12px;opacity:0.8}
 </style>
 </head>
@@ -48,11 +45,11 @@ input{margin:15px;padding:10px 15px;border-radius:30px;border:2px solid #ddd;wid
 <div class="container">
 
   <div class="header">
-    <h2>🌤️ DỰ BÁO THỜI TIẾT</h2>
+    <h2>🌤️ Weather PRO ULTIMATE</h2>
     <div id="location">Đang lấy vị trí...</div>
   </div>
 
-  <input id="search" placeholder="Nhập vị trí...">
+  <input id="search" placeholder="Nhập thành phố...">
 
   <div class="content">
     <div id="loading">Đang tải...</div>
@@ -75,26 +72,22 @@ input{margin:15px;padding:10px 15px;border-radius:30px;border:2px solid #ddd;wid
       <h3>24 giờ tới</h3>
       <div class="hourly" id="hourly"></div>
 
-      <h3>4 ngày (Hôm qua và 3 ngày tới)</h3>
+      <h3>4 ngày (có hôm qua)</h3>
       <div class="daily" id="daily"></div>
 
-      <h3>🌧️ Radar (Nhấn giữ để chọn vị trí)</h3>
+      <h3>🌧️ Radar (giữ để chọn vị trí)</h3>
       <div id="map"></div>
 
     </div>
   </div>
 
-  <!-- FOOTER -->
   <div class="footer">
-    <h4>🌤️ DỰ BÁO THỜI TIẾT</h4>
-    <p>Developed by <b>Nguyễn Thành Nhân</b></p>
-
+    <h4>🌤️ Weather PRO ULTIMATE</h4>
+    <p>Developed by <b>Nhân Nguyễn</b></p>
     <div>
       <a href="#">🌐 Website</a>
       <a href="#">📘 Facebook</a>
-      <a href="#">📺 YouTube</a>
     </div>
-
     <p class="version">Version 1.0.0 • © 2026</p>
   </div>
 
@@ -103,8 +96,7 @@ input{margin:15px;padding:10px 15px;border-radius:30px;border:2px solid #ddd;wid
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 <script>
-let lat, lon;
-let map, marker;
+let lat, lon, map, marker;
 
 // DOM
 const locationEl = document.getElementById('location');
@@ -117,14 +109,16 @@ const hourlyEl = document.getElementById('hourly');
 const dailyEl = document.getElementById('daily');
 const loadingEl = document.getElementById('loading');
 const appEl = document.getElementById('app');
+const searchInput = document.getElementById('search');
 
-// ADDRESS FORMAT
+// FORMAT ADDRESS
 function formatAddress(addr){
-  const xa = addr.suburb || addr.village || addr.town || addr.city_district || '';
-  const huyen = addr.city || addr.county || addr.district || '';
-  const tinh = addr.state || '';
-  const nuoc = addr.country || '';
-  return [xa,huyen,tinh,nuoc].filter(Boolean).join(', ');
+  return [
+    addr.suburb || addr.village || '',
+    addr.city || addr.county || '',
+    addr.state || '',
+    addr.country || ''
+  ].filter(Boolean).join(', ');
 }
 
 // ICON
@@ -136,6 +130,13 @@ function icon(code){
   if(code>=80) return '🌦️';
   if(code>=95) return '⛈️';
   return '🌤️';
+}
+
+// RESET INPUT
+function resetSearch(){
+  searchInput.value='';
+  searchInput.placeholder='Nhập vị trí để tiếp tục tìm kiếm';
+  searchInput.blur();
 }
 
 // WEATHER
@@ -163,14 +164,12 @@ async function loadWeather(){
   windEl.textContent=data.current.windspeed_10m+' km/h';
   pressureEl.textContent=data.current.pressure_msl+' hPa';
 
-  const now=new Date();
-
   // HOURLY
   let h='';
+  const now=new Date();
   for(let i=0;i<data.hourly.time.length;i++){
     const t=new Date(data.hourly.time[i]);
-    const diff=(t-now)/3600000;
-    if(diff>=0 && diff<=24){
+    if((t-now)/3600000>=0 && (t-now)/3600000<=24){
       h+=`<div class="hour">
       ${t.getHours()}h<br>
       ${Math.round(data.hourly.temperature_2m[i])}°<br>
@@ -195,37 +194,26 @@ async function loadWeather(){
   }
   dailyEl.innerHTML=d;
 
-  initRadar();
+  initMap();
 }
 
-// RADAR
-function initRadar(){
+// MAP
+function initMap(){
   if(map) map.remove();
 
   map=L.map('map').setView([lat,lon],6);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-  updateMarker();
-  setupLongPress();
-}
-
-// MARKER
-function updateMarker(){
-  if(marker) map.removeLayer(marker);
   marker=L.marker([lat,lon]).addTo(map);
-}
 
-// LONG PRESS
-let pressTimer;
-
-function setupLongPress(){
-  map.on('mousedown', function(e){
-    pressTimer=setTimeout(async ()=>{
+  let timer;
+  map.on('mousedown', e=>{
+    timer=setTimeout(async ()=>{
       lat=e.latlng.lat;
       lon=e.latlng.lng;
 
       map.setView([lat,lon],8);
-      updateMarker();
+      marker.setLatLng([lat,lon]);
 
       const res=await fetch(
         `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&addressdetails=1`
@@ -235,14 +223,16 @@ function setupLongPress(){
       locationEl.textContent=formatAddress(d.address);
 
       loadWeather();
+      resetSearch();
+
     },600);
   });
 
-  map.on('mouseup', ()=>clearTimeout(pressTimer));
+  map.on('mouseup', ()=>clearTimeout(timer));
 }
 
 // SEARCH
-document.getElementById('search').addEventListener('keypress', async e=>{
+searchInput.addEventListener('keypress', async e=>{
   if(e.key==='Enter'){
     const city=e.target.value;
 
@@ -259,10 +249,11 @@ document.getElementById('search').addEventListener('keypress', async e=>{
 
       if(map){
         map.setView([lat,lon],8);
-        updateMarker();
+        marker.setLatLng([lat,lon]);
       }
 
       loadWeather();
+      resetSearch();
     }
   }
 });
