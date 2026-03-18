@@ -3,82 +3,46 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Thời tiết theo giờ</title>
+
+<title>Weather PRO Radar</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 
 <style>
-*{margin:0;padding:0;box-sizing:border-box}
 body{
   font-family:system-ui;
   background:linear-gradient(135deg,#667eea,#764ba2);
   padding:20px;
 }
 .container{
-  max-width:1000px;margin:auto;
-  background:#fff;border-radius:20px;
-  overflow:hidden;
+  max-width:1100px;margin:auto;
+  background:#fff;border-radius:20px;overflow:hidden;
 }
 .header{
+  text-align:center;color:#fff;
   padding:20px;
-  text-align:center;
-  color:#fff;
   background:linear-gradient(135deg,#4facfe,#00f2fe);
 }
-.search{
-  padding:20px;
-  background:#f5f5f5;
-}
 input{
+  margin:15px;
   padding:10px 15px;
   border-radius:30px;
   border:2px solid #ddd;
-  width:250px;
 }
 .content{padding:20px}
 
-.current{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:20px;
-}
-.box{
-  padding:20px;
-  border-radius:15px;
-}
-.main{
-  text-align:center;
-  background:#fcd5ce;
-  font-size:40px;
-}
-.detail{
-  background:#f1f1f1;
-}
+.current{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.box{padding:20px;border-radius:15px}
+.main{background:#fcd5ce;text-align:center;font-size:40px}
+.detail{background:#eee}
 
-.hourly{
-  margin-top:20px;
-  display:flex;
-  gap:10px;
-  overflow-x:auto;
-}
-.hour{
-  min-width:80px;
-  background:#fff;
-  padding:10px;
-  border-radius:10px;
-  text-align:center;
-}
+.hourly{display:flex;gap:10px;overflow-x:auto;margin-top:20px}
+.hour{min-width:80px;background:#fff;padding:10px;border-radius:10px;text-align:center}
 
-.daily{
-  margin-top:20px;
-  display:grid;
-  grid-template-columns:repeat(3,1fr);
-  gap:10px;
-}
-.day{
-  background:#f1f1f1;
-  padding:15px;
-  border-radius:10px;
-  text-align:center;
-}
+.daily{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:20px}
+.day{background:#eee;padding:15px;border-radius:10px;text-align:center}
+
+#map{height:400px;border-radius:15px;margin-top:20px}
 </style>
 </head>
 
@@ -86,22 +50,20 @@ input{
 
 <div class="container">
   <div class="header">
-    <h2>🌤️ Thời tiết theo giờ</h2>
-    <div id="location">Đang tải...</div>
+    <h2>🌤️ Weather PRO + Radar</h2>
+    <div id="location">...</div>
   </div>
 
-  <div class="search">
-    <input id="search" placeholder="Nhập thành phố...">
-  </div>
+  <input id="search" placeholder="Nhập thành phố...">
 
   <div class="content">
-    <div id="loading">Đang tải dữ liệu...</div>
+    <div id="loading">Đang tải...</div>
 
     <div id="app" style="display:none">
 
       <div class="current">
         <div class="box main">
-          <div id="temp">--°</div>
+          <div id="temp"></div>
           <div id="icon"></div>
         </div>
 
@@ -118,15 +80,43 @@ input{
       <h3>3 ngày tới</h3>
       <div class="daily" id="daily"></div>
 
+      <h3>🌧️ Radar (click để xem thời tiết)</h3>
+      <div id="map"></div>
+
     </div>
   </div>
 </div>
 
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
 <script>
 let lat, lon;
+let sunrise, sunset;
+let map;
 
-// ICON chuẩn theo weathercode
-function icon(code){
+// ===== MOON =====
+function getMoonPhase(date=new Date()){
+  const lp=2551443;
+  const new_moon=new Date('2000-01-06T18:14:00Z').getTime();
+  return (((date.getTime()-new_moon)/1000)%lp)/lp;
+}
+function moonIcon(p){
+  if(p<0.03||p>0.97) return '🌑';
+  if(p<0.22) return '🌒';
+  if(p<0.28) return '🌓';
+  if(p<0.47) return '🌔';
+  if(p<0.53) return '🌕';
+  if(p<0.72) return '🌖';
+  if(p<0.78) return '🌗';
+  return '🌘';
+}
+
+// ===== ICON =====
+function icon(code,time){
+  const night = time < sunrise || time > sunset;
+
+  if(night) return moonIcon(getMoonPhase(time));
+
   if(code===0) return '☀️';
   if(code<=2) return '⛅';
   if(code===3) return '☁️';
@@ -135,110 +125,134 @@ function icon(code){
   if(code>=71&&code<=77) return '❄️';
   if(code>=80&&code<=82) return '🌦️';
   if(code>=95) return '⛈️';
+
   return '🌤️';
 }
 
-// gọi API
+// ===== WEATHER =====
 async function loadWeather(){
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relativehumidity_2m,windspeed_10m,weathercode,pressure_msl&hourly=temperature_2m,weathercode&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=auto`;
+  const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relativehumidity_2m,windspeed_10m,weathercode,pressure_msl&hourly=temperature_2m,weathercode&daily=temperature_2m_max,temperature_2m_min,weathercode,sunrise,sunset&timezone=auto`;
 
-  const res = await fetch(url);
-  const data = await res.json();
+  const res=await fetch(url);
+  const data=await res.json();
+
+  sunrise=new Date(data.daily.sunrise[0]);
+  sunset=new Date(data.daily.sunset[0]);
 
   document.getElementById('loading').style.display='none';
   document.getElementById('app').style.display='block';
 
-  // hiện tại
-  document.getElementById('temp').textContent =
-    Math.round(data.current.temperature_2m) + '°';
+  const now=new Date();
 
-  document.getElementById('icon').textContent =
-    icon(data.current.weathercode);
+  document.getElementById('temp').textContent=Math.round(data.current.temperature_2m)+'°';
+  document.getElementById('icon').textContent=icon(data.current.weathercode,now);
+  document.getElementById('humidity').textContent=data.current.relativehumidity_2m+'%';
+  document.getElementById('wind').textContent=data.current.windspeed_10m+' km/h';
+  document.getElementById('pressure').textContent=data.current.pressure_msl+' hPa';
 
-  document.getElementById('humidity').textContent =
-    data.current.relativehumidity_2m + '%';
-
-  document.getElementById('wind').textContent =
-    data.current.windspeed_10m + ' km/h';
-
-  document.getElementById('pressure').textContent =
-    data.current.pressure_msl + ' hPa';
-
-  // 24h tới (lọc đúng theo thời gian)
-  const now = new Date();
-  let html = '';
-
+  // hourly
+  let h='';
   for(let i=0;i<data.hourly.time.length;i++){
-    const t = new Date(data.hourly.time[i]);
-    const diff = (t - now) / 3600000;
+    const t=new Date(data.hourly.time[i]);
+    const diff=(t-now)/3600000;
 
-    if(diff >= 0 && diff <= 24){
-      html += `
-        <div class="hour">
-          ${t.getHours()}h<br>
-          ${Math.round(data.hourly.temperature_2m[i])}°<br>
-          ${icon(data.hourly.weathercode[i])}
-        </div>
-      `;
+    if(diff>=0 && diff<=24){
+      h+=`<div class="hour">
+        ${t.getHours()}h<br>
+        ${Math.round(data.hourly.temperature_2m[i])}°<br>
+        ${icon(data.hourly.weathercode[i],t)}
+      </div>`;
     }
   }
-  document.getElementById('hourly').innerHTML = html;
+  document.getElementById('hourly').innerHTML=h;
 
-  // 3 ngày
-  const names = ['Hôm nay','Ngày mai','Ngày kia'];
-  let dhtml = '';
-
+  // daily
+  const names=['Hôm nay','Ngày mai','Ngày kia'];
+  let d='';
   for(let i=0;i<3;i++){
-    dhtml += `
-      <div class="day">
-        ${names[i]}<br>
-        ${icon(data.daily.weathercode[i])}<br>
-        ${Math.round(data.daily.temperature_2m_max[i])}° /
-        ${Math.round(data.daily.temperature_2m_min[i])}°
-      </div>
-    `;
-  }
+    const noon=new Date(data.daily.time[i]);
+    noon.setHours(12);
 
-  document.getElementById('daily').innerHTML = dhtml;
+    d+=`<div class="day">
+      ${names[i]}<br>
+      ${icon(data.daily.weathercode[i],noon)}<br>
+      ${Math.round(data.daily.temperature_2m_max[i])}° /
+      ${Math.round(data.daily.temperature_2m_min[i])}°
+    </div>`;
+  }
+  document.getElementById('daily').innerHTML=d;
+
+  initRadar();
 }
 
-// lấy vị trí
+// ===== RADAR =====
+async function initRadar(){
+  if(map) map.remove();
+
+  map=L.map('map').setView([lat,lon],6);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+  const res=await fetch('https://api.rainviewer.com/public/weather-maps.json');
+  const data=await res.json();
+  const latest=data.radar.past.slice(-1)[0];
+
+  L.tileLayer(
+    `https://tilecache.rainviewer.com/v2/radar/${latest.time}/256/{z}/{x}/{y}/2/1_1.png`,
+    {opacity:0.6}
+  ).addTo(map);
+
+  map.on('click', async e=>{
+    const la=e.latlng.lat;
+    const lo=e.latlng.lng;
+
+    const res=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${la}&longitude=${lo}&current=temperature_2m,weathercode`);
+    const d=await res.json();
+
+    const t=new Date();
+
+    L.popup()
+      .setLatLng([la,lo])
+      .setContent(`🌡️ ${Math.round(d.current.temperature_2m)}°<br>${icon(d.current.weathercode,t)}`)
+      .openOn(map);
+  });
+}
+
+// ===== INIT =====
 function init(){
   navigator.geolocation.getCurrentPosition(async pos=>{
-    lat = pos.coords.latitude;
-    lon = pos.coords.longitude;
+    lat=pos.coords.latitude;
+    lon=pos.coords.longitude;
 
-    const res = await fetch(
+    const res=await fetch(
       `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`,
-      {headers:{'User-Agent':'weather-app'}}
+      {headers:{'User-Agent':'weather-pro'}}
     );
-    const data = await res.json();
+    const data=await res.json();
 
-    document.getElementById('location').textContent =
-      data.display_name.split(',')[0];
+    document.getElementById('location').textContent=data.display_name.split(',')[0];
 
     loadWeather();
   });
 }
 
-// search
-document.getElementById('search').addEventListener('keypress', async e=>{
-  if(e.key === 'Enter'){
-    const city = e.target.value;
+// ===== SEARCH =====
+document.getElementById('search').addEventListener('keypress',async e=>{
+  if(e.key==='Enter'){
+    const city=e.target.value;
 
-    const res = await fetch(
+    const res=await fetch(
       `https://nominatim.openstreetmap.org/search?q=${city}&format=json&limit=1`,
-      {headers:{'User-Agent':'weather-app'}}
+      {headers:{'User-Agent':'weather-pro'}}
     );
 
-    const data = await res.json();
+    const data=await res.json();
 
     if(data[0]){
-      lat = data[0].lat;
-      lon = data[0].lon;
+      lat=data[0].lat;
+      lon=data[0].lon;
 
-      document.getElementById('location').textContent =
-        data[0].display_name.split(',')[0];
+      document.getElementById('location').textContent=data[0].display_name.split(',')[0];
 
       loadWeather();
     }
