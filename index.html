@@ -4,31 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Weather PRO Radar</title>
+<title>Weather PRO FINAL</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 
 <style>
-body{
-  font-family:system-ui;
-  background:linear-gradient(135deg,#667eea,#764ba2);
-  padding:20px;
-}
-.container{
-  max-width:1100px;margin:auto;
-  background:#fff;border-radius:20px;overflow:hidden;
-}
-.header{
-  text-align:center;color:#fff;
-  padding:20px;
-  background:linear-gradient(135deg,#4facfe,#00f2fe);
-}
-input{
-  margin:15px;
-  padding:10px 15px;
-  border-radius:30px;
-  border:2px solid #ddd;
-}
+body{font-family:system-ui;background:linear-gradient(135deg,#667eea,#764ba2);padding:20px}
+.container{max-width:1100px;margin:auto;background:#fff;border-radius:20px;overflow:hidden}
+.header{text-align:center;color:#fff;padding:20px;background:linear-gradient(135deg,#4facfe,#00f2fe)}
+input{margin:15px;padding:10px 15px;border-radius:30px;border:2px solid #ddd}
 .content{padding:20px}
 
 .current{display:grid;grid-template-columns:1fr 1fr;gap:20px}
@@ -50,7 +34,7 @@ input{
 
 <div class="container">
   <div class="header">
-    <h2>🌤️ Weather PRO + Radar</h2>
+    <h2>🌤️ Weather PRO FINAL</h2>
     <div id="location">...</div>
   </div>
 
@@ -68,9 +52,9 @@ input{
         </div>
 
         <div class="box detail">
-          <div>💧 Độ ẩm: <span id="humidity"></span></div>
-          <div>🌬️ Gió: <span id="wind"></span></div>
-          <div>🌡️ Áp suất: <span id="pressure"></span></div>
+          <div>💧 <span id="humidity"></span></div>
+          <div>🌬️ <span id="wind"></span></div>
+          <div>🌡️ <span id="pressure"></span></div>
         </div>
       </div>
 
@@ -120,10 +104,8 @@ function icon(code,time){
   if(code===0) return '☀️';
   if(code<=2) return '⛅';
   if(code===3) return '☁️';
-  if(code>=45&&code<=48) return '🌫️';
   if(code>=51&&code<=67) return '🌧️';
-  if(code>=71&&code<=77) return '❄️';
-  if(code>=80&&code<=82) return '🌦️';
+  if(code>=80) return '🌦️';
   if(code>=95) return '⛈️';
 
   return '🌤️';
@@ -131,6 +113,10 @@ function icon(code,time){
 
 // ===== WEATHER =====
 async function loadWeather(){
+
+  document.getElementById('loading').style.display='block';
+  document.getElementById('app').style.display='none';
+
   const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relativehumidity_2m,windspeed_10m,weathercode,pressure_msl&hourly=temperature_2m,weathercode&daily=temperature_2m_max,temperature_2m_min,weathercode,sunrise,sunset&timezone=auto`;
 
   const res=await fetch(url);
@@ -187,6 +173,7 @@ async function loadWeather(){
 
 // ===== RADAR =====
 async function initRadar(){
+
   if(map) map.remove();
 
   map=L.map('map').setView([lat,lon],6);
@@ -202,19 +189,32 @@ async function initRadar(){
     {opacity:0.6}
   ).addTo(map);
 
+  // ===== CLICK FIXED =====
   map.on('click', async e=>{
+
     const la=e.latlng.lat;
     const lo=e.latlng.lng;
 
-    const res=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${la}&longitude=${lo}&current=temperature_2m,weathercode`);
-    const d=await res.json();
+    // update global
+    lat=la;
+    lon=lo;
 
-    const t=new Date();
+    map.setView([la,lo],8);
 
-    L.popup()
-      .setLatLng([la,lo])
-      .setContent(`🌡️ ${Math.round(d.current.temperature_2m)}°<br>${icon(d.current.weathercode,t)}`)
-      .openOn(map);
+    // update location name
+    try{
+      const res=await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${la}&lon=${lo}&format=json`,
+        {headers:{'User-Agent':'weather-pro'}}
+      );
+      const d=await res.json();
+      document.getElementById('location').textContent=d.display_name.split(',')[0];
+    }catch{
+      document.getElementById('location').textContent='Vị trí đã chọn';
+    }
+
+    // 🔥 reload toàn bộ UI
+    loadWeather();
   });
 }
 
@@ -245,7 +245,6 @@ document.getElementById('search').addEventListener('keypress',async e=>{
       `https://nominatim.openstreetmap.org/search?q=${city}&format=json&limit=1`,
       {headers:{'User-Agent':'weather-pro'}}
     );
-
     const data=await res.json();
 
     if(data[0]){
