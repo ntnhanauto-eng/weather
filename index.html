@@ -21,239 +21,132 @@
     .hourly,.daily{overflow-x:auto}
     .hourly-title,.daily-title{font-size:1.5em;margin-bottom:15px;color:#333;font-weight:600}
     .hourly-grid{display:flex;gap:10px}
-    .hour-item{background:#fff;border-radius:15px;padding:15px 10px;text-align:center;min-width:80px;flex:1}
+    .hour-item{background:#fff;border-radius:15px;padding:15px 10px;text-align:center;min-width:80px}
     .hour-time{font-size:0.9em;color:#666;margin-bottom:5px}
-    .hour-temp{font-size:1.8em;font-weight:600;color:#333}
-    .hour-icon{font-size:1.5em;margin:5px 0}
-    .hour-desc{font-size:0.8em;color:#666}
-    .daily-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:15px}
-    .day-item{background:#f8f9fa;border-radius:15px;padding:20px;text-align:center;border:2px solid transparent}
-    .day-item.active{border-color:#4facfe}
-    .day-name{font-weight:600;margin-bottom:10px}
-    .day-icon{font-size:2em;margin:10px 0}
-    .day-temps{font-size:1.1em}
-    .day-high{color:#e74c3c}
-    .day-low{color:#3498db}
-    .loading,.error{text-align:center;padding:50px;color:#666}
-    .error{color:#e74c3c}
+    .hour-temp{font-size:1.5em;font-weight:600}
+    .day-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+    .day-item{background:#f8f9fa;padding:15px;border-radius:10px;text-align:center}
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
       <h1>🌤️ Thời tiết theo giờ</h1>
-      <div id="location">Đang xác định vị trí...</div>
+      <div id="location">Đang tải...</div>
     </div>
-    
+
     <div class="search-bar">
-      <input type="text" id="searchInput" class="search-input" placeholder="Nhập tên thành phố (Hà Nội, TP.HCM, Đà Nẵng...)">
+      <input id="search" class="search-input" placeholder="Nhập thành phố...">
     </div>
-    
+
     <div class="content">
-      <div id="loading" class="loading">Đang tải thời tiết...</div>
-      <div id="error" class="error" style="display:none"></div>
-      
-      <div id="weatherContent" style="display:none">
+      <div id="loading">Đang tải...</div>
+      <div id="weather" style="display:none">
+
         <div class="current-weather">
           <div class="current-main">
-            <div id="currentTemp">--°</div>
-            <div id="currentFeels">Cảm giác như --°</div>
-            <div id="currentDesc"></div>
+            <h2 id="temp">--°</h2>
+            <div id="desc"></div>
           </div>
           <div class="current-details">
-            <h3>Chi tiết hiện tại</h3>
-            <div>Độ ẩm: <span id="humidity">--%</span></div>
-            <div>Gió: <span id="wind">-- km/h</span></div>
-            <div>Áp suất: <span id="pressure">-- hPa</span></div>
+            <div>💧 Độ ẩm: <span id="humidity"></span></div>
+            <div>🌬️ Gió: <span id="wind"></span></div>
+            <div>ضغط Áp suất: <span id="pressure"></span></div>
           </div>
         </div>
-        
-        <div class="hourly">
-          <h3 class="hourly-title">📊 Dự báo từng giờ (24h tới)</h3>
-          <div class="hourly-grid" id="hourlyList"></div>
-        </div>
-        
-        <div class="daily">
-          <h3 class="daily-title">📅 3 ngày tới</h3>
-          <div class="daily-grid" id="dailyList"></div>
-        </div>
+
+        <h3>24 giờ tới</h3>
+        <div class="hourly-grid" id="hourly"></div>
+
+        <h3>3 ngày tới</h3>
+        <div class="day-grid" id="daily"></div>
+
       </div>
     </div>
   </div>
 
-  <script>
-    let currentLat, currentLon;
-    let weatherData = null;
+<script>
+let lat, lon;
 
-    // Icon mapping
-    const icons = {
-      'clear sky': '☀️', 'few clouds': '⛅', 'scattered clouds': '☁️', 'broken clouds': '☁️',
-      'shower rain': '🌦️', 'rain': '🌧️', 'thunderstorm': '⛈️', 'snow': '❄️',
-      'mist': '🌫️'
-    };
+function icon(code){
+  if(code===0) return '☀️';
+  if(code<=2) return '⛅';
+  if(code===3) return '☁️';
+  if(code>=45&&code<=48) return '🌫️';
+  if(code>=51&&code<=67) return '🌧️';
+  if(code>=71&&code<=77) return '❄️';
+  if(code>=80) return '🌦️';
+  if(code>=95) return '⛈️';
+  return '🌤️';
+}
 
-    // Lấy vị trí GPS
-    function getLocation() {
-      return new Promise((resolve, reject) => {
-        if (!navigator.geolocation) {
-          reject('Trình duyệt không hỗ trợ GPS');
-          return;
-        }
-        navigator.geolocation.getCurrentPosition(
-          pos => resolve({lat: pos.coords.latitude, lon: pos.coords.longitude}),
-          () => resolve({lat: 21.0285, lon: 105.8542}) // Hà Nội mặc định
-        );
-      });
+async function fetchWeather(){
+  const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relativehumidity_2m,windspeed_10m,weathercode,pressure_msl&hourly=temperature_2m,weathercode&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=auto`;
+
+  const res=await fetch(url);
+  const data=await res.json();
+
+  document.getElementById('loading').style.display='none';
+  document.getElementById('weather').style.display='block';
+
+  // current
+  document.getElementById('temp').textContent=Math.round(data.current.temperature_2m)+'°';
+  document.getElementById('desc').textContent=icon(data.current.weathercode);
+  document.getElementById('humidity').textContent=data.current.relativehumidity_2m+'%';
+  document.getElementById('wind').textContent=data.current.windspeed_10m+' km/h';
+  document.getElementById('pressure').textContent=data.current.pressure_msl+' hPa';
+
+  // hourly
+  const now=new Date();
+  let hhtml='';
+  for(let i=0;i<data.hourly.time.length;i++){
+    const t=new Date(data.hourly.time[i]);
+    const diff=(t-now)/3600000;
+    if(diff>=0 && diff<=24){
+      hhtml+=`<div class='hour-item'>${t.getHours()}h<br>${Math.round(data.hourly.temperature_2m[i])}°<br>${icon(data.hourly.weathercode[i])}</div>`;
     }
+  }
+  document.getElementById('hourly').innerHTML=hhtml;
 
-    // Chuyển đổi tọa độ thành tên thành phố
-    async function getCityName(lat, lon) {
-      try {
-        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`);
-        const data = await res.json();
-        return data.display_name?.split(',')[0] || 'Vị trí của bạn';
-      } catch {
-        return 'Vị trí của bạn';
-      }
+  // daily
+  let dhtml='';
+  const names=['Hôm nay','Ngày mai','Ngày kia'];
+  for(let i=0;i<3;i++){
+    dhtml+=`<div class='day-item'>${names[i]}<br>${icon(data.daily.weathercode[i])}<br>${Math.round(data.daily.temperature_2m_max[i])}° / ${Math.round(data.daily.temperature_2m_min[i])}°</div>`;
+  }
+  document.getElementById('daily').innerHTML=dhtml;
+}
+
+async function init(){
+  navigator.geolocation.getCurrentPosition(async pos=>{
+    lat=pos.coords.latitude;
+    lon=pos.coords.longitude;
+
+    const res=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`,{headers:{'User-Agent':'app'}});
+    const data=await res.json();
+    document.getElementById('location').textContent=data.display_name.split(',')[0];
+
+    fetchWeather();
+  });
+}
+
+// search
+
+document.getElementById('search').addEventListener('keypress',async e=>{
+  if(e.key==='Enter'){
+    const city=e.target.value;
+    const res=await fetch(`https://nominatim.openstreetmap.org/search?q=${city}&format=json&limit=1`,{headers:{'User-Agent':'app'}});
+    const data=await res.json();
+    if(data[0]){
+      lat=data[0].lat;
+      lon=data[0].lon;
+      document.getElementById('location').textContent=data[0].display_name.split(',')[0];
+      fetchWeather();
     }
+  }
+});
 
-    // Lấy dữ liệu thời tiết
-    async function fetchWeather(lat, lon) {
-      try {
-        document.getElementById('loading').style.display = 'block';
-        document.getElementById('error').style.display = 'none';
-        
-        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,precipitation_probability,weathercode,relativehumidity_2m,windspeed_10m&daily=temperature_2m_max,temperature_2m_min,weathercode&current=temperature_2m,relativehumidity_2m,precipitation_probability,windspeed_10m,weathercode&timezone=Asia/Bangkok&forecast_days=3`;
-        
-        const res = await fetch(url);
-        weatherData = await res.json();
-        renderWeather();
-      } catch (e) {
-        showError('Không tải được dữ liệu thời tiết');
-      }
-    }
-
-    // Hiển thị thời tiết
-    function renderWeather() {
-      const data = weatherData;
-      document.getElementById('loading').style.display = 'none';
-      document.getElementById('weatherContent').style.display = 'block';
-
-      // Hiện tại
-      const now = new Date(data.current_weather.time + 'Z');
-      const currentCode = data.current_weather.weathercode;
-      
-      document.getElementById('currentTemp').textContent = Math.round(data.current_weather.temperature_2m) + '°';
-      document.getElementById('currentFeels').textContent = `Cảm giác như ${Math.round(data.current_weather.temperature_2m)}°`;
-      document.getElementById('currentDesc').textContent = getWeatherDesc(currentCode);
-      document.getElementById('humidity').textContent = data.current.relativehumidity_2m + '%';
-      document.getElementById('wind').textContent = Math.round(data.current.windspeed_10m) + ' km/h';
-      document.getElementById('pressure').textContent = '1013'; // Không có dữ liệu
-
-      // Giờ
-      renderHourly(data.hourly.time, data.hourly.temperature_2m, data.hourly.weathercode, now);
-
-      // Ngày
-      renderDaily(data.daily.time, data.daily.temperature_2m_max, data.daily.temperature_2m_min, data.daily.weathercode);
-    }
-
-    function renderHourly(times, temps, codes, now) {
-      const container = document.getElementById('hourlyList');
-      let html = '';
-      
-      for (let i = 0; i < 24; i++) {
-        const time = new Date(times[i] + 'Z');
-        const hour = time.getHours();
-        const diff = (time - now) / (1000 * 60 * 60);
-        
-        if (diff >= 0 && diff <= 24) {
-          html += `
-            <div class="hour-item">
-              <div class="hour-time">${hour}h</div>
-              <div class="hour-temp">${Math.round(temps[i])}°</div>
-              <div class="hour-icon">${icons[getWeatherDesc(codes[i])] || '🌤️'}</div>
-              <div class="hour-desc">${getWeatherDesc(codes[i]).slice(0,8)}</div>
-            </div>
-          `;
-        }
-      }
-      container.innerHTML = html;
-    }
-
-    function renderDaily(times, maxTemps, minTemps, codes) {
-      const container = document.getElementById('dailyList');
-      let html = '';
-      
-      for (let i = 0; i < 3; i++) {
-        const date = new Date(times[i] + 'Z');
-        const dayNames = ['Hôm nay', 'Ngày mai', 'Tối mai'];
-        
-        html += `
-          <div class="day-item ${i===0 ? 'active' : ''}">
-            <div class="day-name">${dayNames[i]}</div>
-            <div class="day-icon">${icons[getWeatherDesc(codes[i])] || '🌤️'}</div>
-            <div class="day-temps">
-              <span class="day-high">${Math.round(maxTemps[i])}°</span>
-              <span style="color:#666">/</span>
-              <span class="day-low">${Math.round(minTemps[i])}°</span>
-            </div>
-          </div>
-        `;
-      }
-      container.innerHTML = html;
-    }
-
-    function getWeatherDesc(code) {
-      const map = {
-        0: 'clear sky', 1: 'mainly clear', 2: 'partly cloudy', 3: 'overcast',
-        45: 'fog', 48: 'mist', 51: 'light drizzle', 53: 'moderate drizzle',
-        55: 'dense drizzle', 61: 'slight rain', 63: 'moderate rain', 65: 'heavy rain',
-        71: 'slight snow', 73: 'moderate snow', 75: 'heavy snow', 80: 'slight rain showers',
-        95: 'thunderstorm'
-      };
-      return map[code] || 'unknown';
-    }
-
-    function showError(msg) {
-      document.getElementById('loading').style.display = 'none';
-      document.getElementById('error').textContent = msg;
-      document.getElementById('error').style.display = 'block';
-    }
-
-    // Search thành phố
-    document.getElementById('searchInput').addEventListener('keypress', async e => {
-      if (e.key === 'Enter') {
-        const city = e.target.value.trim();
-        if (city) {
-          try {
-            const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city + ', Vietnam')}&format=json&limit=1`);
-            const data = await res.json();
-            if (data[0]) {
-              currentLat = parseFloat(data[0].lat);
-              currentLon = parseFloat(data[0].lon);
-              document.getElementById('location').textContent = data[0].display_name.split(',')[0];
-              fetchWeather(currentLat, currentLon);
-            }
-          } catch {
-            showError('Không tìm thấy thành phố');
-          }
-        }
-      }
-    });
-
-    // Khởi tạo
-    async function init() {
-      const pos = await getLocation();
-      currentLat = pos.lat;
-      currentLon = pos.lon;
-      
-      const cityName = await getCityName(currentLat, currentLon);
-      document.getElementById('location').textContent = cityName;
-      
-      await fetchWeather(currentLat, currentLon);
-    }
-
-    init();
-  </script>
+init();
+</script>
 </body>
 </html>
