@@ -1,280 +1,259 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>Radar mưa + Dự báo</title>
-
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-
-<style>
-
-body{
-margin:0;
-font-family:Arial;
-background:#0b2233;
-color:white;
-}
-
-header{
-text-align:center;
-padding:12px;
-font-size:20px;
-font-weight:bold;
-background:#062338;
-}
-
-#map{
-height:420px;
-}
-
-#info{
-padding:15px;
-}
-
-table{
-width:100%;
-border-collapse:collapse;
-}
-
-th,td{
-padding:10px;
-border-bottom:1px solid rgba(255,255,255,0.2);
-text-align:center;
-}
-
-</style>
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Thời tiết theo giờ</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:system-ui,-apple-system,sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;padding:20px}
+    .container{max-width:1000px;margin:0 auto;background:#fff;border-radius:20px;box-shadow:0 20px 40px rgba(0,0,0,0.1);overflow:hidden}
+    .header{padding:20px;background:linear-gradient(135deg,#4facfe 0%,#00f2fe 100%);color:white;text-align:center}
+    .search-bar{padding:20px;background:#f8f9fa;border-bottom:1px solid #eee}
+    .search-input{padding:12px 20px;border:2px solid #e0e0e0;border-radius:50px;font-size:16px;width:300px;max-width:100%;outline:none}
+    .search-input:focus{border-color:#4facfe}
+    .content{padding:20px}
+    .current-weather{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:30px}
+    .current-main{text-align:center;padding:30px;background:linear-gradient(135deg,#ffecd2 0%,#fcb69f 100%);border-radius:20px}
+    .current-main h2{font-size:3em;font-weight:300;margin:0}
+    .current-main .feels{font-size:1.2em;opacity:0.8}
+    .current-details{background:#f8f9fa;padding:20px;border-radius:15px}
+    .hourly,.daily{overflow-x:auto}
+    .hourly-title,.daily-title{font-size:1.5em;margin-bottom:15px;color:#333;font-weight:600}
+    .hourly-grid{display:flex;gap:10px}
+    .hour-item{background:#fff;border-radius:15px;padding:15px 10px;text-align:center;min-width:80px;flex:1}
+    .hour-time{font-size:0.9em;color:#666;margin-bottom:5px}
+    .hour-temp{font-size:1.8em;font-weight:600;color:#333}
+    .hour-icon{font-size:1.5em;margin:5px 0}
+    .hour-desc{font-size:0.8em;color:#666}
+    .daily-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:15px}
+    .day-item{background:#f8f9fa;border-radius:15px;padding:20px;text-align:center;border:2px solid transparent}
+    .day-item.active{border-color:#4facfe}
+    .day-name{font-weight:600;margin-bottom:10px}
+    .day-icon{font-size:2em;margin:10px 0}
+    .day-temps{font-size:1.1em}
+    .day-high{color:#e74c3c}
+    .day-low{color:#3498db}
+    .loading,.error{text-align:center;padding:50px;color:#666}
+    .error{color:#e74c3c}
+  </style>
 </head>
-
 <body>
-
-<header>🌧 Radar mưa + Dự báo 3 giờ</header>
-
-<div id="map"></div>
-
-<div id="info">
-
-<div id="locationName"></div>
-<div id="coord"></div>
-
-<h3>Dự báo 3 giờ tới</h3>
-
-<table>
-
-<tr>
-<th>Giờ</th>
-<th>Nhiệt độ</th>
-<th>Mưa</th>
-<th>Gió</th>
-<th>Trạng thái</th>
-</tr>
-
-<tbody id="weatherTable"></tbody>
-
-</table>
-
-</div>
-
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-<script>
-
-// tạo bản đồ
-const map=L.map("map",{
-minZoom:3,
-maxZoom:12,
-zoomSnap:0.5
-}).setView([12.55,109.2],6)
-
-// bản đồ nền
-L.tileLayer(
-"https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-{
-maxZoom:19
-}
-).addTo(map)
-
-let radarLayer
-let marker
-
-// tải radar
-fetch("https://api.rainviewer.com/public/weather-maps.json")
-
-.then(r=>r.json())
-
-.then(data=>{
-
-const host=data.host
-const frame=data.radar.past.slice(-1)[0]
-
-radarLayer=L.tileLayer(
-host+frame.path+"/256/{z}/{x}/{y}/2/1_1.png",
-{
-opacity:0.6,
-tileSize:256,
-
-maxNativeZoom:8,   // zoom thật của radar
-maxZoom:12,        // cho phép zoom sâu hơn
-
-updateWhenZooming:false,
-updateWhenIdle:true,
-
-noWrap:true,
-bounds:[[-85,-180],[85,180]]
-}
-)
-
-radarLayer.addTo(map)
-
-})
-
-// lấy vị trí người dùng
-window.onload=function(){
-
-if(navigator.geolocation){
-
-navigator.geolocation.getCurrentPosition(function(pos){
-
-const lat=pos.coords.latitude
-const lon=pos.coords.longitude
-
-map.setView([lat,lon],7)
-
-showMarker(lat,lon)
-
-loadLocation(lat,lon)
-loadWeather(lat,lon)
-
-})
-
-}
-
-}
-
-// hiển thị marker
-function showMarker(lat,lon){
-
-if(marker){
-map.removeLayer(marker)
-}
-
-marker=L.marker([lat,lon]).addTo(map)
-
-document.getElementById("coord").innerHTML=
-"📌 "+lat.toFixed(4)+" , "+lon.toFixed(4)
-
-}
-
-// click bản đồ
-map.on("click",function(e){
-
-const lat=e.latlng.lat
-const lon=e.latlng.lng
-
-showMarker(lat,lon)
-
-loadLocation(lat,lon)
-loadWeather(lat,lon)
-
-})
-
-// lấy tên địa điểm
-function loadLocation(lat,lon){
-
-fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`)
-
-.then(r=>r.json())
-
-.then(data=>{
-
-document.getElementById("locationName").innerHTML=
-"📍 "+data.display_name
-
-})
-
-}
-
-// dự báo thời tiết
-function loadWeather(lat,lon){
-
-fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,precipitation,windspeed_10m&forecast_days=1&timezone=Asia/Bangkok`)
-
-.then(r=>r.json())
-
-.then(data=>{
-
-let table=document.getElementById("weatherTable")
-table.innerHTML=""
-
-let times=data.hourly.time
-let temps=data.hourly.temperature_2m
-let rains=data.hourly.precipitation
-let winds=data.hourly.windspeed_10m
-
-let now=new Date()
-
-let startIndex=0
-
-for(let i=0;i<times.length;i++){
-
-let t=new Date(times[i])
-
-if(t>=now){
-startIndex=i
-break
-}
-
-}
-
-// hiển thị 3 giờ tiếp theo
-for(let i=startIndex;i<startIndex+3;i++){
-
-let time=new Date(times[i])
-let temp=temps[i]
-let rain=rains[i]
-let wind=winds[i]
-
-let status="Nắng"
-
-if(rain===0 && wind<8){
-status="Nắng nhẹ"
-}
-else if(rain>0 && rain<=0.5){
-status="Mưa phùn"
-}
-else if(rain>0.5 && rain<=2){
-status="Mưa nhẹ"
-}
-else if(rain>2 && rain<=10){
-status="Mưa vừa"
-}
-else if(rain>10 && rain<=30){
-status="Mưa to"
-}
-else if(rain>30){
-status="Mưa rất lớn"
-}
-
-table.innerHTML+=`
-<tr>
-<td>${time.getHours()}:00</td>
-<td>${temp}°C</td>
-<td>${rain} mm</td>
-<td>${wind} km/h</td>
-<td>${status}</td>
-</tr>
-`
-
-}
-
-})
-
-}
-
-</script>
-
+  <div class="container">
+    <div class="header">
+      <h1>🌤️ Thời tiết theo giờ</h1>
+      <div id="location">Đang xác định vị trí...</div>
+    </div>
+    
+    <div class="search-bar">
+      <input type="text" id="searchInput" class="search-input" placeholder="Nhập tên thành phố (Hà Nội, TP.HCM, Đà Nẵng...)">
+    </div>
+    
+    <div class="content">
+      <div id="loading" class="loading">Đang tải thời tiết...</div>
+      <div id="error" class="error" style="display:none"></div>
+      
+      <div id="weatherContent" style="display:none">
+        <div class="current-weather">
+          <div class="current-main">
+            <div id="currentTemp">--°</div>
+            <div id="currentFeels">Cảm giác như --°</div>
+            <div id="currentDesc"></div>
+          </div>
+          <div class="current-details">
+            <h3>Chi tiết hiện tại</h3>
+            <div>Độ ẩm: <span id="humidity">--%</span></div>
+            <div>Gió: <span id="wind">-- km/h</span></div>
+            <div>Áp suất: <span id="pressure">-- hPa</span></div>
+          </div>
+        </div>
+        
+        <div class="hourly">
+          <h3 class="hourly-title">📊 Dự báo từng giờ (24h tới)</h3>
+          <div class="hourly-grid" id="hourlyList"></div>
+        </div>
+        
+        <div class="daily">
+          <h3 class="daily-title">📅 3 ngày tới</h3>
+          <div class="daily-grid" id="dailyList"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentLat, currentLon;
+    let weatherData = null;
+
+    // Icon mapping
+    const icons = {
+      'clear sky': '☀️', 'few clouds': '⛅', 'scattered clouds': '☁️', 'broken clouds': '☁️',
+      'shower rain': '🌦️', 'rain': '🌧️', 'thunderstorm': '⛈️', 'snow': '❄️',
+      'mist': '🌫️'
+    };
+
+    // Lấy vị trí GPS
+    function getLocation() {
+      return new Promise((resolve, reject) => {
+        if (!navigator.geolocation) {
+          reject('Trình duyệt không hỗ trợ GPS');
+          return;
+        }
+        navigator.geolocation.getCurrentPosition(
+          pos => resolve({lat: pos.coords.latitude, lon: pos.coords.longitude}),
+          () => resolve({lat: 21.0285, lon: 105.8542}) // Hà Nội mặc định
+        );
+      });
+    }
+
+    // Chuyển đổi tọa độ thành tên thành phố
+    async function getCityName(lat, lon) {
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`);
+        const data = await res.json();
+        return data.display_name?.split(',')[0] || 'Vị trí của bạn';
+      } catch {
+        return 'Vị trí của bạn';
+      }
+    }
+
+    // Lấy dữ liệu thời tiết
+    async function fetchWeather(lat, lon) {
+      try {
+        document.getElementById('loading').style.display = 'block';
+        document.getElementById('error').style.display = 'none';
+        
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,precipitation_probability,weathercode,relativehumidity_2m,windspeed_10m&daily=temperature_2m_max,temperature_2m_min,weathercode&current=temperature_2m,relativehumidity_2m,precipitation_probability,windspeed_10m,weathercode&timezone=Asia/Bangkok&forecast_days=3`;
+        
+        const res = await fetch(url);
+        weatherData = await res.json();
+        renderWeather();
+      } catch (e) {
+        showError('Không tải được dữ liệu thời tiết');
+      }
+    }
+
+    // Hiển thị thời tiết
+    function renderWeather() {
+      const data = weatherData;
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('weatherContent').style.display = 'block';
+
+      // Hiện tại
+      const now = new Date(data.current_weather.time + 'Z');
+      const currentCode = data.current_weather.weathercode;
+      
+      document.getElementById('currentTemp').textContent = Math.round(data.current_weather.temperature_2m) + '°';
+      document.getElementById('currentFeels').textContent = `Cảm giác như ${Math.round(data.current_weather.temperature_2m)}°`;
+      document.getElementById('currentDesc').textContent = getWeatherDesc(currentCode);
+      document.getElementById('humidity').textContent = data.current.relativehumidity_2m + '%';
+      document.getElementById('wind').textContent = Math.round(data.current.windspeed_10m) + ' km/h';
+      document.getElementById('pressure').textContent = '1013'; // Không có dữ liệu
+
+      // Giờ
+      renderHourly(data.hourly.time, data.hourly.temperature_2m, data.hourly.weathercode, now);
+
+      // Ngày
+      renderDaily(data.daily.time, data.daily.temperature_2m_max, data.daily.temperature_2m_min, data.daily.weathercode);
+    }
+
+    function renderHourly(times, temps, codes, now) {
+      const container = document.getElementById('hourlyList');
+      let html = '';
+      
+      for (let i = 0; i < 24; i++) {
+        const time = new Date(times[i] + 'Z');
+        const hour = time.getHours();
+        const diff = (time - now) / (1000 * 60 * 60);
+        
+        if (diff >= 0 && diff <= 24) {
+          html += `
+            <div class="hour-item">
+              <div class="hour-time">${hour}h</div>
+              <div class="hour-temp">${Math.round(temps[i])}°</div>
+              <div class="hour-icon">${icons[getWeatherDesc(codes[i])] || '🌤️'}</div>
+              <div class="hour-desc">${getWeatherDesc(codes[i]).slice(0,8)}</div>
+            </div>
+          `;
+        }
+      }
+      container.innerHTML = html;
+    }
+
+    function renderDaily(times, maxTemps, minTemps, codes) {
+      const container = document.getElementById('dailyList');
+      let html = '';
+      
+      for (let i = 0; i < 3; i++) {
+        const date = new Date(times[i] + 'Z');
+        const dayNames = ['Hôm nay', 'Ngày mai', 'Tối mai'];
+        
+        html += `
+          <div class="day-item ${i===0 ? 'active' : ''}">
+            <div class="day-name">${dayNames[i]}</div>
+            <div class="day-icon">${icons[getWeatherDesc(codes[i])] || '🌤️'}</div>
+            <div class="day-temps">
+              <span class="day-high">${Math.round(maxTemps[i])}°</span>
+              <span style="color:#666">/</span>
+              <span class="day-low">${Math.round(minTemps[i])}°</span>
+            </div>
+          </div>
+        `;
+      }
+      container.innerHTML = html;
+    }
+
+    function getWeatherDesc(code) {
+      const map = {
+        0: 'clear sky', 1: 'mainly clear', 2: 'partly cloudy', 3: 'overcast',
+        45: 'fog', 48: 'mist', 51: 'light drizzle', 53: 'moderate drizzle',
+        55: 'dense drizzle', 61: 'slight rain', 63: 'moderate rain', 65: 'heavy rain',
+        71: 'slight snow', 73: 'moderate snow', 75: 'heavy snow', 80: 'slight rain showers',
+        95: 'thunderstorm'
+      };
+      return map[code] || 'unknown';
+    }
+
+    function showError(msg) {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('error').textContent = msg;
+      document.getElementById('error').style.display = 'block';
+    }
+
+    // Search thành phố
+    document.getElementById('searchInput').addEventListener('keypress', async e => {
+      if (e.key === 'Enter') {
+        const city = e.target.value.trim();
+        if (city) {
+          try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city + ', Vietnam')}&format=json&limit=1`);
+            const data = await res.json();
+            if (data[0]) {
+              currentLat = parseFloat(data[0].lat);
+              currentLon = parseFloat(data[0].lon);
+              document.getElementById('location').textContent = data[0].display_name.split(',')[0];
+              fetchWeather(currentLat, currentLon);
+            }
+          } catch {
+            showError('Không tìm thấy thành phố');
+          }
+        }
+      }
+    });
+
+    // Khởi tạo
+    async function init() {
+      const pos = await getLocation();
+      currentLat = pos.lat;
+      currentLon = pos.lon;
+      
+      const cityName = await getCityName(currentLat, currentLon);
+      document.getElementById('location').textContent = cityName;
+      
+      await fetchWeather(currentLat, currentLon);
+    }
+
+    init();
+  </script>
 </body>
 </html>
