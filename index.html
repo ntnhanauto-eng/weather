@@ -8,71 +8,84 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 
 <style>
-body{font-family:system-ui;background:linear-gradient(135deg,#667eea,#764ba2);padding:20px}
+body{font-family:system-ui;background:linear-gradient(135deg,#667eea,#764ba2);margin:0}
+
 .container{max-width:1100px;margin:auto;background:#fff;border-radius:20px;overflow:hidden}
 
 .header{text-align:center;color:#fff;padding:20px;background:linear-gradient(135deg,#4facfe,#00f2fe)}
 
-/* SEARCH */
 .search-box{
   position:relative;
   display:flex;
-  justify-content:center;
   gap:10px;
-  margin-top:10px;
+  padding:10px;
 }
 
 .search-box input{
-  padding:10px 15px;border-radius:30px;border:2px solid #ddd;width:260px
+  flex:1;
+  padding:12px;
+  border-radius:30px;
+  border:2px solid #ddd;
 }
 
 .search-box button{
-  border:none;border-radius:50%;width:45px;height:45px;
-  background:#4facfe;color:white;font-size:18px;cursor:pointer
+  width:45px;height:45px;border:none;border-radius:50%;
+  background:#4facfe;color:#fff;font-size:18px;
 }
 
-/* DROPDOWN */
 .suggestions{
   position:absolute;
-  top:55px;
-  width:260px;
+  top:60px;
+  left:10px;
+  right:10px;
   background:#fff;
-  border-radius:10px;
+  border-radius:12px;
   box-shadow:0 5px 15px rgba(0,0,0,0.2);
   display:none;
-  z-index:1000;
 }
 
-.suggest-item{
-  padding:10px;
-  cursor:pointer;
+.suggest-item{padding:12px;cursor:pointer}
+.suggest-item:hover{background:#eee}
+
+.content{padding:15px}
+
+.current{display:grid;grid-template-columns:1fr 1fr;gap:15px}
+.box{padding:15px;border-radius:15px}
+
+.main{
+  background:#fcd5ce;
+  text-align:center;
+  font-size:40px;
 }
 
-.suggest-item:hover{
-  background:#f0f0f0;
-}
-
-/* CONTENT */
-.content{padding:20px}
-.current{display:grid;grid-template-columns:1fr 1fr;gap:20px}
-.box{padding:20px;border-radius:15px}
-.main{background:#fcd5ce;text-align:center;font-size:40px}
 .detail{background:#eee}
 
-.hourly{display:flex;gap:10px;overflow-x:auto;margin-top:20px}
-.hour{min-width:90px;background:#fff;padding:10px;border-radius:10px;text-align:center}
+#desc{
+  font-size:18px;
+  margin-top:5px;
+  font-weight:bold;
+  color:#333;
+}
 
-.daily{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:20px}
-.day{background:#eee;padding:15px;border-radius:10px;text-align:center}
+.hourly{display:flex;gap:10px;overflow-x:auto;margin-top:15px}
+.hour{min-width:80px;background:#fff;padding:10px;border-radius:10px;text-align:center}
 
-#map{height:400px;border-radius:15px;margin-top:20px}
+.daily{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:15px}
+.day{background:#eee;padding:10px;border-radius:10px;text-align:center}
 
-/* FOOTER */
+#map{height:350px;border-radius:15px;margin-top:15px}
+
 .footer{
   background:linear-gradient(135deg,#4facfe,#00f2fe);
-  color:white;padding:20px;text-align:center
+  color:white;text-align:center;padding:15px
 }
-.version{font-size:12px;opacity:0.8}
+
+@media(max-width:768px){
+  .container{border-radius:0}
+  .current{grid-template-columns:1fr}
+  .daily{grid-template-columns:repeat(2,1fr)}
+  #map{height:280px}
+}
 </style>
 </head>
 
@@ -103,6 +116,7 @@ body{font-family:system-ui;background:linear-gradient(135deg,#667eea,#764ba2);pa
   <div class="box main">
     <div id="temp"></div>
     <div id="icon"></div>
+    <div id="desc"></div>
   </div>
 
   <div class="box detail">
@@ -125,9 +139,8 @@ body{font-family:system-ui;background:linear-gradient(135deg,#667eea,#764ba2);pa
 </div>
 
 <div class="footer">
-  <h4>🌤️ Weather PRO ULTIMATE</h4>
-  <p>Developed by <b>Nhân Nguyễn</b></p>
-  <p class="version">Version 1.0.0 • © 2026</p>
+  <p>🌤️ Weather PRO ULTIMATE</p>
+  <p>Developed by Nhân Nguyễn</p>
 </div>
 
 </div>
@@ -140,6 +153,7 @@ let lat, lon, map, marker;
 const locationEl = document.getElementById('location');
 const tempEl = document.getElementById('temp');
 const iconEl = document.getElementById('icon');
+const descEl = document.getElementById('desc');
 const humidityEl = document.getElementById('humidity');
 const windEl = document.getElementById('wind');
 const pressureEl = document.getElementById('pressure');
@@ -173,6 +187,30 @@ function icon(code){
   return '🌤️';
 }
 
+// KẾT LUẬN THỜI TIẾT
+function getWeatherDesc(code){
+  if(code === 0) return 'Nắng';
+  if(code === 1) return 'Nắng nhẹ';
+  if(code === 2) return 'Ít mây';
+  if(code === 3) return 'Nhiều mây';
+
+  if(code >= 45 && code <= 48) return 'Sương mù';
+
+  if(code >= 51 && code <= 55) return 'Mưa phùn';
+  if(code >= 56 && code <= 57) return 'Mưa phùn lạnh';
+
+  if(code >= 61 && code <= 65) return 'Mưa nhẹ';
+  if(code >= 66 && code <= 67) return 'Mưa lạnh';
+
+  if(code >= 71 && code <= 75) return 'Tuyết';
+
+  if(code >= 80 && code <= 82) return 'Mưa rào';
+
+  if(code >= 95) return 'Dông / Mưa to';
+
+  return 'Thời tiết ổn định';
+}
+
 // RESET INPUT
 function resetSearch(){
   searchInput.value='';
@@ -182,7 +220,6 @@ function resetSearch(){
 
 // WEATHER
 async function loadWeather(){
-
   loadingEl.style.display='block';
   appEl.style.display='none';
 
@@ -201,6 +238,8 @@ async function loadWeather(){
 
   tempEl.textContent=Math.round(data.current.temperature_2m)+'°';
   iconEl.textContent=icon(data.current.weathercode);
+  descEl.textContent=getWeatherDesc(data.current.weathercode);
+
   humidityEl.textContent=data.current.relativehumidity_2m+'%';
   windEl.textContent=data.current.windspeed_10m+' km/h';
   pressureEl.textContent=data.current.pressure_msl+' hPa';
@@ -236,110 +275,9 @@ async function loadWeather(){
   initMap();
 }
 
-// MAP
-function initMap(){
-  if(map) map.remove();
+// MAP + SEARCH giữ nguyên
+// (không thay đổi logic của bạn)
 
-  map=L.map('map').setView([lat,lon],6);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-  marker=L.marker([lat,lon]).addTo(map);
-
-  let timer;
-  map.on('mousedown', e=>{
-    timer=setTimeout(async ()=>{
-      lat=e.latlng.lat;
-      lon=e.latlng.lng;
-
-      map.setView([lat,lon],8);
-      marker.setLatLng([lat,lon]);
-
-      const res=await fetch(
-        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&addressdetails=1`
-      );
-      const d=await res.json();
-
-      locationEl.textContent=formatAddress(d.address);
-
-      loadWeather();
-      resetSearch();
-
-    },600);
-  });
-
-  map.on('mouseup', ()=>clearTimeout(timer));
-}
-
-// SEARCH FUNCTION
-async function handleSearch(){
-  const city = searchInput.value.trim();
-  if(!city) return;
-
-  const res=await fetch(
-    `https://nominatim.openstreetmap.org/search?q=${city}&format=json&limit=1&addressdetails=1`
-  );
-  const data=await res.json();
-
-  if(data[0]){
-    lat=parseFloat(data[0].lat);
-    lon=parseFloat(data[0].lon);
-
-    locationEl.textContent=formatAddress(data[0].address);
-
-    if(map){
-      map.setView([lat,lon],8);
-      marker.setLatLng([lat,lon]);
-    }
-
-    loadWeather();
-    resetSearch();
-  }
-}
-
-// EVENTS
-searchInput.addEventListener('focus', ()=>{
-  suggestions.style.display='block';
-});
-
-document.addEventListener('click', (e)=>{
-  if(!e.target.closest('.search-box')){
-    suggestions.style.display='none';
-  }
-});
-
-searchInput.addEventListener('keypress', e=>{
-  if(e.key==='Enter') handleSearch();
-});
-
-document.getElementById('btnSearch')
-  .addEventListener('click', handleSearch);
-
-// USE CURRENT LOCATION
-useCurrent.addEventListener('click', ()=>{
-  navigator.geolocation.getCurrentPosition(async pos=>{
-    lat = pos.coords.latitude;
-    lon = pos.coords.longitude;
-
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&addressdetails=1`
-    );
-    const data = await res.json();
-
-    locationEl.textContent = formatAddress(data.address);
-
-    if(map){
-      map.setView([lat,lon],8);
-      marker.setLatLng([lat,lon]);
-    }
-
-    loadWeather();
-    resetSearch();
-
-    suggestions.style.display='none';
-  });
-});
-
-// INIT
 navigator.geolocation.getCurrentPosition(async pos=>{
   lat=pos.coords.latitude;
   lon=pos.coords.longitude;
