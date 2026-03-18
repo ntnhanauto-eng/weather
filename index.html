@@ -1,73 +1,131 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Thời tiết theo giờ</title>
-  <style>
-    *{margin:0;padding:0;box-sizing:border-box}
-    body{font-family:system-ui,-apple-system,sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;padding:20px}
-    .container{max-width:1000px;margin:0 auto;background:#fff;border-radius:20px;box-shadow:0 20px 40px rgba(0,0,0,0.1);overflow:hidden}
-    .header{padding:20px;background:linear-gradient(135deg,#4facfe 0%,#00f2fe 100%);color:white;text-align:center}
-    .search-bar{padding:20px;background:#f8f9fa;border-bottom:1px solid #eee}
-    .search-input{padding:12px 20px;border:2px solid #e0e0e0;border-radius:50px;font-size:16px;width:300px;max-width:100%;outline:none}
-    .search-input:focus{border-color:#4facfe}
-    .content{padding:20px}
-    .current-weather{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:30px}
-    .current-main{text-align:center;padding:30px;background:linear-gradient(135deg,#ffecd2 0%,#fcb69f 100%);border-radius:20px}
-    .current-main h2{font-size:3em;font-weight:300;margin:0}
-    .current-main .feels{font-size:1.2em;opacity:0.8}
-    .current-details{background:#f8f9fa;padding:20px;border-radius:15px}
-    .hourly,.daily{overflow-x:auto}
-    .hourly-title,.daily-title{font-size:1.5em;margin-bottom:15px;color:#333;font-weight:600}
-    .hourly-grid{display:flex;gap:10px}
-    .hour-item{background:#fff;border-radius:15px;padding:15px 10px;text-align:center;min-width:80px}
-    .hour-time{font-size:0.9em;color:#666;margin-bottom:5px}
-    .hour-temp{font-size:1.5em;font-weight:600}
-    .day-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
-    .day-item{background:#f8f9fa;padding:15px;border-radius:10px;text-align:center}
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Thời tiết theo giờ</title>
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  font-family:system-ui;
+  background:linear-gradient(135deg,#667eea,#764ba2);
+  padding:20px;
+}
+.container{
+  max-width:1000px;margin:auto;
+  background:#fff;border-radius:20px;
+  overflow:hidden;
+}
+.header{
+  padding:20px;
+  text-align:center;
+  color:#fff;
+  background:linear-gradient(135deg,#4facfe,#00f2fe);
+}
+.search{
+  padding:20px;
+  background:#f5f5f5;
+}
+input{
+  padding:10px 15px;
+  border-radius:30px;
+  border:2px solid #ddd;
+  width:250px;
+}
+.content{padding:20px}
+
+.current{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:20px;
+}
+.box{
+  padding:20px;
+  border-radius:15px;
+}
+.main{
+  text-align:center;
+  background:#fcd5ce;
+  font-size:40px;
+}
+.detail{
+  background:#f1f1f1;
+}
+
+.hourly{
+  margin-top:20px;
+  display:flex;
+  gap:10px;
+  overflow-x:auto;
+}
+.hour{
+  min-width:80px;
+  background:#fff;
+  padding:10px;
+  border-radius:10px;
+  text-align:center;
+}
+
+.daily{
+  margin-top:20px;
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:10px;
+}
+.day{
+  background:#f1f1f1;
+  padding:15px;
+  border-radius:10px;
+  text-align:center;
+}
+</style>
 </head>
+
 <body>
-  <div class="container">
-    <div class="header">
-      <h1>🌤️ Thời tiết theo giờ</h1>
-      <div id="location">Đang tải...</div>
-    </div>
 
-    <div class="search-bar">
-      <input id="search" class="search-input" placeholder="Nhập thành phố...">
-    </div>
+<div class="container">
+  <div class="header">
+    <h2>🌤️ Thời tiết theo giờ</h2>
+    <div id="location">Đang tải...</div>
+  </div>
 
-    <div class="content">
-      <div id="loading">Đang tải...</div>
-      <div id="weather" style="display:none">
+  <div class="search">
+    <input id="search" placeholder="Nhập thành phố...">
+  </div>
 
-        <div class="current-weather">
-          <div class="current-main">
-            <h2 id="temp">--°</h2>
-            <div id="desc"></div>
-          </div>
-          <div class="current-details">
-            <div>💧 Độ ẩm: <span id="humidity"></span></div>
-            <div>🌬️ Gió: <span id="wind"></span></div>
-            <div>ضغط Áp suất: <span id="pressure"></span></div>
-          </div>
+  <div class="content">
+    <div id="loading">Đang tải dữ liệu...</div>
+
+    <div id="app" style="display:none">
+
+      <div class="current">
+        <div class="box main">
+          <div id="temp">--°</div>
+          <div id="icon"></div>
         </div>
 
-        <h3>24 giờ tới</h3>
-        <div class="hourly-grid" id="hourly"></div>
-
-        <h3>3 ngày tới</h3>
-        <div class="day-grid" id="daily"></div>
-
+        <div class="box detail">
+          <div>💧 Độ ẩm: <span id="humidity"></span></div>
+          <div>🌬️ Gió: <span id="wind"></span></div>
+          <div>🌡️ Áp suất: <span id="pressure"></span></div>
+        </div>
       </div>
+
+      <h3>24 giờ tới</h3>
+      <div class="hourly" id="hourly"></div>
+
+      <h3>3 ngày tới</h3>
+      <div class="daily" id="daily"></div>
+
     </div>
   </div>
+</div>
 
 <script>
 let lat, lon;
 
+// ICON chuẩn theo weathercode
 function icon(code){
   if(code===0) return '☀️';
   if(code<=2) return '⛅';
@@ -75,78 +133,120 @@ function icon(code){
   if(code>=45&&code<=48) return '🌫️';
   if(code>=51&&code<=67) return '🌧️';
   if(code>=71&&code<=77) return '❄️';
-  if(code>=80) return '🌦️';
+  if(code>=80&&code<=82) return '🌦️';
   if(code>=95) return '⛈️';
   return '🌤️';
 }
 
-async function fetchWeather(){
-  const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relativehumidity_2m,windspeed_10m,weathercode,pressure_msl&hourly=temperature_2m,weathercode&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=auto`;
+// gọi API
+async function loadWeather(){
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relativehumidity_2m,windspeed_10m,weathercode,pressure_msl&hourly=temperature_2m,weathercode&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=auto`;
 
-  const res=await fetch(url);
-  const data=await res.json();
+  const res = await fetch(url);
+  const data = await res.json();
 
   document.getElementById('loading').style.display='none';
-  document.getElementById('weather').style.display='block';
+  document.getElementById('app').style.display='block';
 
-  // current
-  document.getElementById('temp').textContent=Math.round(data.current.temperature_2m)+'°';
-  document.getElementById('desc').textContent=icon(data.current.weathercode);
-  document.getElementById('humidity').textContent=data.current.relativehumidity_2m+'%';
-  document.getElementById('wind').textContent=data.current.windspeed_10m+' km/h';
-  document.getElementById('pressure').textContent=data.current.pressure_msl+' hPa';
+  // hiện tại
+  document.getElementById('temp').textContent =
+    Math.round(data.current.temperature_2m) + '°';
 
-  // hourly
-  const now=new Date();
-  let hhtml='';
+  document.getElementById('icon').textContent =
+    icon(data.current.weathercode);
+
+  document.getElementById('humidity').textContent =
+    data.current.relativehumidity_2m + '%';
+
+  document.getElementById('wind').textContent =
+    data.current.windspeed_10m + ' km/h';
+
+  document.getElementById('pressure').textContent =
+    data.current.pressure_msl + ' hPa';
+
+  // 24h tới (lọc đúng theo thời gian)
+  const now = new Date();
+  let html = '';
+
   for(let i=0;i<data.hourly.time.length;i++){
-    const t=new Date(data.hourly.time[i]);
-    const diff=(t-now)/3600000;
-    if(diff>=0 && diff<=24){
-      hhtml+=`<div class='hour-item'>${t.getHours()}h<br>${Math.round(data.hourly.temperature_2m[i])}°<br>${icon(data.hourly.weathercode[i])}</div>`;
+    const t = new Date(data.hourly.time[i]);
+    const diff = (t - now) / 3600000;
+
+    if(diff >= 0 && diff <= 24){
+      html += `
+        <div class="hour">
+          ${t.getHours()}h<br>
+          ${Math.round(data.hourly.temperature_2m[i])}°<br>
+          ${icon(data.hourly.weathercode[i])}
+        </div>
+      `;
     }
   }
-  document.getElementById('hourly').innerHTML=hhtml;
+  document.getElementById('hourly').innerHTML = html;
 
-  // daily
-  let dhtml='';
-  const names=['Hôm nay','Ngày mai','Ngày kia'];
+  // 3 ngày
+  const names = ['Hôm nay','Ngày mai','Ngày kia'];
+  let dhtml = '';
+
   for(let i=0;i<3;i++){
-    dhtml+=`<div class='day-item'>${names[i]}<br>${icon(data.daily.weathercode[i])}<br>${Math.round(data.daily.temperature_2m_max[i])}° / ${Math.round(data.daily.temperature_2m_min[i])}°</div>`;
+    dhtml += `
+      <div class="day">
+        ${names[i]}<br>
+        ${icon(data.daily.weathercode[i])}<br>
+        ${Math.round(data.daily.temperature_2m_max[i])}° /
+        ${Math.round(data.daily.temperature_2m_min[i])}°
+      </div>
+    `;
   }
-  document.getElementById('daily').innerHTML=dhtml;
+
+  document.getElementById('daily').innerHTML = dhtml;
 }
 
-async function init(){
+// lấy vị trí
+function init(){
   navigator.geolocation.getCurrentPosition(async pos=>{
-    lat=pos.coords.latitude;
-    lon=pos.coords.longitude;
+    lat = pos.coords.latitude;
+    lon = pos.coords.longitude;
 
-    const res=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`,{headers:{'User-Agent':'app'}});
-    const data=await res.json();
-    document.getElementById('location').textContent=data.display_name.split(',')[0];
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`,
+      {headers:{'User-Agent':'weather-app'}}
+    );
+    const data = await res.json();
 
-    fetchWeather();
+    document.getElementById('location').textContent =
+      data.display_name.split(',')[0];
+
+    loadWeather();
   });
 }
 
 // search
+document.getElementById('search').addEventListener('keypress', async e=>{
+  if(e.key === 'Enter'){
+    const city = e.target.value;
 
-document.getElementById('search').addEventListener('keypress',async e=>{
-  if(e.key==='Enter'){
-    const city=e.target.value;
-    const res=await fetch(`https://nominatim.openstreetmap.org/search?q=${city}&format=json&limit=1`,{headers:{'User-Agent':'app'}});
-    const data=await res.json();
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?q=${city}&format=json&limit=1`,
+      {headers:{'User-Agent':'weather-app'}}
+    );
+
+    const data = await res.json();
+
     if(data[0]){
-      lat=data[0].lat;
-      lon=data[0].lon;
-      document.getElementById('location').textContent=data[0].display_name.split(',')[0];
-      fetchWeather();
+      lat = data[0].lat;
+      lon = data[0].lon;
+
+      document.getElementById('location').textContent =
+        data[0].display_name.split(',')[0];
+
+      loadWeather();
     }
   }
 });
 
 init();
 </script>
+
 </body>
 </html>
