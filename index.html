@@ -75,34 +75,22 @@ html, body{
 /* CONTENT */
 .content{padding:15px}
 
-/* ✅ LUÔN 2 CỘT */
 .current{
   display:grid;
   grid-template-columns:1fr 1fr;
-  gap:10px;
+  gap:15px;
 }
 
-.box{
-  padding:15px;
-  border-radius:15px;
-}
+.box{padding:15px;border-radius:15px}
 
 .main{
   background:#fcd5ce;
   text-align:center;
-  font-size:35px;
+  font-size:40px;
 }
 
-.detail{
-  background:#eee;
-  font-size:15px;
-}
+.detail{background:#eee}
 
-.detail div{
-  margin:6px 0;
-}
-
-/* HOURLY */
 .hourly{
   display:flex;
   gap:10px;
@@ -117,7 +105,6 @@ html, body{
   text-align:center;
 }
 
-/* DAILY */
 .daily{
   display:grid;
   grid-template-columns:repeat(4,1fr);
@@ -144,29 +131,12 @@ html, body{
   padding:15px;
 }
 
-/* 📱 MOBILE vẫn giữ 2 cột */
+/* MOBILE */
 @media(max-width:768px){
   .container{border-radius:0}
-
-  .current{
-    grid-template-columns:1fr 1fr;
-  }
-
-  .main{
-    font-size:28px;
-  }
-
-  .detail{
-    font-size:13px;
-  }
-
-  .daily{
-    grid-template-columns:repeat(2,1fr);
-  }
-
-  #map{
-    height:280px;
-  }
+  .current{grid-template-columns:1fr}
+  .daily{grid-template-columns:repeat(2,1fr)}
+  #map{height:280px}
 }
 </style>
 </head>
@@ -235,16 +205,19 @@ const searchInput = document.getElementById('search');
 const suggestions = document.getElementById('suggestions');
 const useCurrent = document.getElementById('useCurrent');
 
+// RESET UI (QUAN TRỌNG)
 function resetUI(){
   searchInput.blur();
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
+// RESET SEARCH
 function resetSearch(){
   searchInput.value='';
   searchInput.placeholder='Nhập vị trí để tiếp tục tìm kiếm';
 }
 
+// FORMAT ADDRESS
 function formatAddress(a){
   return [
     a.suburb||a.village||'',
@@ -254,6 +227,7 @@ function formatAddress(a){
   ].filter(Boolean).join(', ');
 }
 
+// ICON
 function icon(c){
   if(c===0) return '☀️';
   if(c<=2) return '⛅';
@@ -264,6 +238,7 @@ function icon(c){
   return '🌤️';
 }
 
+// LOAD WEATHER
 async function loadWeather(){
   document.getElementById('loading').style.display='block';
   document.getElementById('app').style.display='none';
@@ -287,6 +262,7 @@ async function loadWeather(){
   document.getElementById('wind').textContent=data.current.windspeed_10m+' km/h';
   document.getElementById('pressure').textContent=data.current.pressure_msl+' hPa';
 
+  // HOURLY
   const now=new Date();
   let h='';
   data.hourly.time.forEach((t,i)=>{
@@ -302,6 +278,7 @@ async function loadWeather(){
   });
   document.getElementById('hourly').innerHTML=h;
 
+  // DAILY
   const names=['Hôm qua','Hôm nay','Ngày mai','Ngày kia'];
   let d='';
   for(let i=0;i<4;i++){
@@ -318,6 +295,7 @@ async function loadWeather(){
   initMap();
 }
 
+// MAP
 function initMap(){
   if(map) map.remove();
 
@@ -345,12 +323,14 @@ function initMap(){
       loadWeather();
       resetSearch();
       resetUI();
+
     },600);
   });
 
   map.on('mouseup', ()=>clearTimeout(timer));
 }
 
+// SEARCH
 async function handleSearch(){
   const city=searchInput.value.trim();
   if(!city) return;
@@ -372,6 +352,7 @@ async function handleSearch(){
   }
 }
 
+// EVENTS
 searchInput.addEventListener('focus', ()=>suggestions.style.display='block');
 
 searchInput.addEventListener('input', ()=>{
@@ -392,6 +373,7 @@ searchInput.addEventListener('keypress', e=>{
 document.getElementById('btnSearch')
   .addEventListener('click', handleSearch);
 
+// GPS
 useCurrent.addEventListener('click', ()=>{
   navigator.geolocation.getCurrentPosition(async pos=>{
     lat=pos.coords.latitude;
@@ -410,6 +392,7 @@ useCurrent.addEventListener('click', ()=>{
   });
 });
 
+// INIT
 navigator.geolocation.getCurrentPosition(async pos=>{
   lat=pos.coords.latitude;
   lon=pos.coords.longitude;
