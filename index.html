@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Weather PRO FINAL FIX</title>
+<title>Weather PRO FINAL</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 
@@ -11,7 +11,7 @@
 body{font-family:system-ui;background:linear-gradient(135deg,#667eea,#764ba2);padding:20px}
 .container{max-width:1100px;margin:auto;background:#fff;border-radius:20px;overflow:hidden}
 .header{text-align:center;color:#fff;padding:20px;background:linear-gradient(135deg,#4facfe,#00f2fe)}
-input{margin:15px;padding:10px 15px;border-radius:30px;border:2px solid #ddd}
+input{margin:15px;padding:10px 15px;border-radius:30px;border:2px solid #ddd;width:250px}
 .content{padding:20px}
 
 .current{display:grid;grid-template-columns:1fr 1fr;gap:20px}
@@ -74,10 +74,9 @@ input{margin:15px;padding:10px 15px;border-radius:30px;border:2px solid #ddd}
 
 <script>
 let lat, lon;
-let sunrise, sunset;
 let map, marker;
 
-// ✅ FIX QUAN TRỌNG
+// ===== DOM =====
 const locationEl = document.getElementById('location');
 const tempEl = document.getElementById('temp');
 const iconEl = document.getElementById('icon');
@@ -88,6 +87,16 @@ const hourlyEl = document.getElementById('hourly');
 const dailyEl = document.getElementById('daily');
 const loadingEl = document.getElementById('loading');
 const appEl = document.getElementById('app');
+
+// ===== FORMAT ADDRESS =====
+function formatAddress(addr){
+  const xa = addr.suburb || addr.village || addr.town || addr.city_district || '';
+  const huyen = addr.city || addr.county || addr.district || '';
+  const tinh = addr.state || '';
+  const nuoc = addr.country || '';
+
+  return [xa, huyen, tinh, nuoc].filter(Boolean).join(', ');
+}
 
 // ===== ICON =====
 function icon(code){
@@ -162,8 +171,7 @@ async function loadWeather(){
 }
 
 // ===== RADAR =====
-async function initRadar(){
-
+function initRadar(){
   if(map) map.remove();
 
   map=L.map('map').setView([lat,lon],6);
@@ -194,10 +202,10 @@ function setupLongPress(){
 
       try{
         const res=await fetch(
-          `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`
+          `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&addressdetails=1`
         );
         const d=await res.json();
-        locationEl.textContent=d.display_name.split(',')[0];
+        locationEl.textContent=formatAddress(d.address);
       }catch{
         locationEl.textContent='Vị trí đã chọn';
       }
@@ -215,7 +223,7 @@ document.getElementById('search').addEventListener('keypress', async e=>{
     const city=e.target.value;
 
     const res=await fetch(
-      `https://nominatim.openstreetmap.org/search?q=${city}&format=json&limit=1`
+      `https://nominatim.openstreetmap.org/search?q=${city}&format=json&limit=1&addressdetails=1`
     );
     const data=await res.json();
 
@@ -223,7 +231,7 @@ document.getElementById('search').addEventListener('keypress', async e=>{
       lat=parseFloat(data[0].lat);
       lon=parseFloat(data[0].lon);
 
-      locationEl.textContent=data[0].display_name.split(',')[0];
+      locationEl.textContent=formatAddress(data[0].address);
 
       if(map){
         map.setView([lat,lon],8);
@@ -242,10 +250,10 @@ navigator.geolocation.getCurrentPosition(async pos=>{
 
   try{
     const res=await fetch(
-      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&addressdetails=1`
     );
     const data=await res.json();
-    locationEl.textContent=data.display_name.split(',')[0];
+    locationEl.textContent=formatAddress(data.address);
   }catch{
     locationEl.textContent='Vị trí của bạn';
   }
