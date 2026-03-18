@@ -64,7 +64,7 @@ input{margin:15px;padding:10px 15px;border-radius:30px;border:2px solid #ddd}
       <h3>3 ngày tới</h3>
       <div class="daily" id="daily"></div>
 
-      <h3>🌧️ Radar (click để xem thời tiết)</h3>
+      <h3>🌧️ Radar (giữ để xem thời tiết)</h3>
       <div id="map"></div>
 
     </div>
@@ -76,13 +76,13 @@ input{margin:15px;padding:10px 15px;border-radius:30px;border:2px solid #ddd}
 <script>
 let lat, lon;
 let sunrise, sunset;
-let map;
+let map, marker;
 
 // ===== MOON =====
-function getMoonPhase(date=new Date()){
+function getMoonPhase(d=new Date()){
   const lp=2551443;
-  const new_moon=new Date('2000-01-06T18:14:00Z').getTime();
-  return (((date.getTime()-new_moon)/1000)%lp)/lp;
+  const nm=new Date('2000-01-06T18:14:00Z').getTime();
+  return (((d.getTime()-nm)/1000)%lp)/lp;
 }
 function moonIcon(p){
   if(p<0.03||p>0.97) return '🌑';
@@ -98,13 +98,12 @@ function moonIcon(p){
 // ===== ICON =====
 function icon(code,time){
   const night = time < sunrise || time > sunset;
-
   if(night) return moonIcon(getMoonPhase(time));
 
   if(code===0) return '☀️';
   if(code<=2) return '⛅';
   if(code===3) return '☁️';
-  if(code>=51&&code<=67) return '🌧️';
+  if(code>=51) return '🌧️';
   if(code>=80) return '🌦️';
   if(code>=95) return '⛈️';
 
@@ -117,9 +116,10 @@ async function loadWeather(){
   document.getElementById('loading').style.display='block';
   document.getElementById('app').style.display='none';
 
-  const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relativehumidity_2m,windspeed_10m,weathercode,pressure_msl&hourly=temperature_2m,weathercode&daily=temperature_2m_max,temperature_2m_min,weathercode,sunrise,sunset&timezone=auto`;
+  const res=await fetch(
+    `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relativehumidity_2m,windspeed_10m,weathercode,pressure_msl&hourly=temperature_2m,weathercode&daily=temperature_2m_max,temperature_2m_min,weathercode,sunrise,sunset&timezone=auto`
+  );
 
-  const res=await fetch(url);
   const data=await res.json();
 
   sunrise=new Date(data.daily.sunrise[0]);
@@ -130,43 +130,36 @@ async function loadWeather(){
 
   const now=new Date();
 
-  document.getElementById('temp').textContent=Math.round(data.current.temperature_2m)+'°';
-  document.getElementById('icon').textContent=icon(data.current.weathercode,now);
-  document.getElementById('humidity').textContent=data.current.relativehumidity_2m+'%';
-  document.getElementById('wind').textContent=data.current.windspeed_10m+' km/h';
-  document.getElementById('pressure').textContent=data.current.pressure_msl+' hPa';
+  temp.textContent=Math.round(data.current.temperature_2m)+'°';
+  iconEl.textContent=icon(data.current.weathercode,now);
+  humidity.textContent=data.current.relativehumidity_2m+'%';
+  wind.textContent=data.current.windspeed_10m+' km/h';
+  pressure.textContent=data.current.pressure_msl+' hPa';
 
   // hourly
   let h='';
   for(let i=0;i<data.hourly.time.length;i++){
     const t=new Date(data.hourly.time[i]);
     const diff=(t-now)/3600000;
-
     if(diff>=0 && diff<=24){
-      h+=`<div class="hour">
-        ${t.getHours()}h<br>
-        ${Math.round(data.hourly.temperature_2m[i])}°<br>
-        ${icon(data.hourly.weathercode[i],t)}
-      </div>`;
+      h+=`<div class="hour">${t.getHours()}h<br>
+      ${Math.round(data.hourly.temperature_2m[i])}°<br>
+      ${icon(data.hourly.weathercode[i],t)}</div>`;
     }
   }
-  document.getElementById('hourly').innerHTML=h;
+  hourly.innerHTML=h;
 
   // daily
   const names=['Hôm nay','Ngày mai','Ngày kia'];
   let d='';
   for(let i=0;i<3;i++){
-    const noon=new Date(data.daily.time[i]);
-    noon.setHours(12);
-
-    d+=`<div class="day">
-      ${names[i]}<br>
-      ${icon(data.daily.weathercode[i],noon)}<br>
-      ${Math.round(data.daily.temperature_2m_max[i])}° /
-      ${Math.round(data.daily.temperature_2m_min[i])}°
-    </div>`;
+    const noon=new Date(data.daily.time[i]); noon.setHours(12);
+    d+=`<div class="day">${names[i]}<br>
+    ${icon(data.daily.weathercode[i],noon)}<br>
+    ${Math.round(data.daily.temperature_2m_max[i])}° /
+    ${Math.round(data.daily.temperature_2m_min[i])}°</div>`;
   }
-  document.getElementById('daily').innerHTML=d;
+  daily.innerHTML=d;
 
   initRadar();
 }
@@ -189,76 +182,100 @@ async function initRadar(){
     {opacity:0.6}
   ).addTo(map);
 
-  // ===== CLICK FIXED =====
-  map.on('click', async e=>{
+  updateMarker();
 
-    const la=e.latlng.lat;
-    const lo=e.latlng.lng;
-
-    // update global
-    lat=la;
-    lon=lo;
-
-    map.setView([la,lo],8);
-
-    // update location name
-    try{
-      const res=await fetch(
-        `https://nominatim.openstreetmap.org/reverse?lat=${la}&lon=${lo}&format=json`,
-        {headers:{'User-Agent':'weather-pro'}}
-      );
-      const d=await res.json();
-      document.getElementById('location').textContent=d.display_name.split(',')[0];
-    }catch{
-      document.getElementById('location').textContent='Vị trí đã chọn';
-    }
-
-    // 🔥 reload toàn bộ UI
-    loadWeather();
-  });
+  setupLongPress();
 }
 
-// ===== INIT =====
-function init(){
-  navigator.geolocation.getCurrentPosition(async pos=>{
-    lat=pos.coords.latitude;
-    lon=pos.coords.longitude;
+// ===== MARKER =====
+function updateMarker(){
+  if(marker) map.removeLayer(marker);
+  marker=L.marker([lat,lon]).addTo(map);
+}
 
-    const res=await fetch(
-      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`,
-      {headers:{'User-Agent':'weather-pro'}}
-    );
-    const data=await res.json();
+// ===== LONG PRESS =====
+let pressTimer;
 
-    document.getElementById('location').textContent=data.display_name.split(',')[0];
+function setupLongPress(){
 
-    loadWeather();
+  map.on('mousedown', function(e){
+
+    pressTimer=setTimeout(async ()=>{
+
+      lat=e.latlng.lat;
+      lon=e.latlng.lng;
+
+      map.setView([lat,lon],8);
+
+      updateMarker();
+
+      try{
+        const res=await fetch(
+          `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`
+        );
+        const d=await res.json();
+        location.textContent=d.display_name.split(',')[0];
+      }catch{
+        location.textContent='Vị trí đã chọn';
+      }
+
+      loadWeather();
+
+    },600);
   });
+
+  map.on('mouseup', ()=>clearTimeout(pressTimer));
+  map.on('mouseout', ()=>clearTimeout(pressTimer));
 }
 
 // ===== SEARCH =====
-document.getElementById('search').addEventListener('keypress',async e=>{
+search.addEventListener('keypress', async e=>{
   if(e.key==='Enter'){
     const city=e.target.value;
 
     const res=await fetch(
-      `https://nominatim.openstreetmap.org/search?q=${city}&format=json&limit=1`,
-      {headers:{'User-Agent':'weather-pro'}}
+      `https://nominatim.openstreetmap.org/search?q=${city}&format=json&limit=1`
     );
     const data=await res.json();
 
     if(data[0]){
-      lat=data[0].lat;
-      lon=data[0].lon;
+      lat=parseFloat(data[0].lat);
+      lon=parseFloat(data[0].lon);
 
-      document.getElementById('location').textContent=data[0].display_name.split(',')[0];
+      location.textContent=data[0].display_name.split(',')[0];
+
+      if(map){
+        map.setView([lat,lon],8);
+        updateMarker();
+      }
 
       loadWeather();
     }
   }
 });
 
-init();
+// ===== INIT =====
+navigator.geolocation.getCurrentPosition(async pos=>{
+  lat=pos.coords.latitude;
+  lon=pos.coords.longitude;
+
+  const res=await fetch(
+    `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`
+  );
+  const data=await res.json();
+
+  location.textContent=data.display_name.split(',')[0];
+
+  window.temp=temp;
+  window.iconEl=icon;
+  window.humidity=humidity;
+  window.wind=wind;
+  window.pressure=pressure;
+  window.hourly=hourly;
+  window.daily=daily;
+
+  loadWeather();
+});
 </script>
 
 </body>
