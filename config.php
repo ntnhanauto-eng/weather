@@ -21,7 +21,7 @@ function writeLog($conn, $action) {
 mysqli_query($conn, "DELETE FROM system_logs WHERE log_time < NOW() - INTERVAL 30 DAY");
 
 function checkAuth() {
-    if (!isset($_SESSION['user_id'])) { header('Location: login.php'); exit(); }
+    if (!isset($_SESSION['user_id'])) { header('Location: https://thanhnhan.site/khachsan/index.php'); exit(); }
 }
 function checkAdmin() {
     if ($_SESSION['role'] !== 'admin') { die("Quyền truy cập bị từ chối!"); }
