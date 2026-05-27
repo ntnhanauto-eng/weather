@@ -2,7 +2,7 @@
 session_name('HOTEL_PRO_SESS');
 if (session_status() === PHP_SESSION_NONE) { session_start(); }
 
-$conn = mysqli_connect("localhost", "root", "", "hotel_pro");
+$conn = mysqli_connect("localhost", "nacwxjyg_khachsan", "9NDvHSK9dgT3JvqzSRTE", "nacwxjyg_khachsan");
 if (!$conn) { die("Kết nối thất bại: " . mysqli_connect_error()); }
 mysqli_set_charset($conn, "utf8mb4");
 
