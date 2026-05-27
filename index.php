@@ -36,7 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $r = mysqli_fetch_assoc(mysqli_query($conn, "SELECT room_number FROM rooms WHERE id = $room_id"));
         writeLog($conn, "Thực hiện thanh toán và trả phòng {$r['room_number']}");
     }
-    header("Location: index.php");
+    header("Location: https://thanhnhan.site/khachsan/index.php");
     exit();
 }
 
@@ -82,10 +82,10 @@ while ($s = mysqli_fetch_assoc($services_res)) { $services[] = $s; }
 <div class="nav">
     <div>Xin chào: <b><?php echo $_SESSION['fullname']; ?></b> (<?php echo strtoupper($_SESSION['role']); ?>)</div>
     <div>
-        <a href="index.php">Sơ đồ phòng</a>
-        <?php if(isAdmin()) echo '<a href="admin_users.php">Quản lý nhân viên</a>'; ?>
-        <?php if(isAdmin()) echo '<a href="admin_logs.php">Xem lịch sử Log</a>'; ?>
-        <a href="logout.php" style="color:#e74c3c;">Đăng xuất</a>
+        <a href="https://thanhnhan.site/khachsan/index.php">Sơ đồ phòng</a>
+        <?php if(isAdmin()) echo '<a href="https://thanhnhan.site/khachsan/admin_users.php">Quản lý nhân viên</a>'; ?>
+        <?php if(isAdmin()) echo '<a href="https://thanhnhan.site/khachsan/admin_logs.php">Xem lịch sử Log</a>'; ?>
+        <a href="https://thanhnhan.site/khachsan/logout.php" style="color:#e74c3c;">Đăng xuất</a>
     </div>
 </div>
 
@@ -116,7 +116,7 @@ const servicesList = <?php echo json_encode($services); ?>;
 const roomPricePerHour = <?php echo ROOM_PRICE_PER_HOUR; ?>;
 
 function loadRoomsRealtime() {
-    fetch('api_room_data.php')
+    fetch('https://thanhnhan.site/khachsan/api_room_data.php')
         .then(res => res.json())
         .then(data => {
             // Xóa dữ liệu cũ trên giao diện
